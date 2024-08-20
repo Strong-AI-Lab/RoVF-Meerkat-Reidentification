@@ -40,6 +40,7 @@ class AnimalClipDataset(Dataset):
         self.zfill_num = zfill_num
         self.load_all_videos(directory)
         self.list_clip_paths = [k for k in self.clips.keys()]
+        self.override_value = override_value
         
 
     def __len__(self):
