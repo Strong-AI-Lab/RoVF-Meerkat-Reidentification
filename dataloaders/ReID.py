@@ -9,13 +9,15 @@ import glob
 import os
 from collections import defaultdict
 from torchvision.transforms.v2.functional import InterpolationMode
+import torchvision.transforms.v2 as transforms
 
 class AnimalClipDataset(Dataset):
     def __init__(
         self, directory, animal_cooccurrences,
-        transforms=None, K=20, num_frames=10, 
+        transformations=None, K=20, num_frames=10, 
         total_frames=20, mode="positive_negative",  
-        zfill_num=4, override_value=None
+        zfill_num=4, is_override=False, override_value=None, 
+        masks=None
     ):
         """
         Args:
@@ -30,9 +32,34 @@ class AnimalClipDataset(Dataset):
         self.clip_metadata = defaultdict(list)                  #clip_metadata (dict): Dictionary of clip ids by animal_id {animal_id: [clip_ids]}.
         self.clips = dict()                                     #clips (dict): Dictionary holding clip arrays {clip_ids: numpy_array}.
         self.animal_cooccurrences = animal_cooccurrences
+        self.masks = masks
 
         ## clip_paths to a list of clip paths from a dict. Get values into a dict...
-        self.transformations = transforms
+        self.transformations = transformations # (transformations already composed; dictionary before composing)
+        if self.transformations:
+
+            # spatial transformations
+            self.resize_crop = self.transformations[1]['random_resized_crop'] if "random_resized_crop" in self.transformations[1].keys()  else None
+            self.horizontal_flip = self.transformations[1]['horizontal_flip'] if "horizontal_flip" in self.transformations[1].keys() else None
+
+            # non-spatial transformations
+            if "gaussian_blur" not in self.transformations[1].keys() and "color_jitter" not in self.transformations[1].keys():
+                self.non_spatial_transforms = None
+            elif "gaussian_blur" in self.transformations[1].keys() and "color_jitter" not in self.transformations[1].keys():
+                self.non_spatial_transforms = transforms.Compose([
+                    self.transformations[1]['gaussian_blur'],
+                ])
+            elif "gaussian_blur" not in self.transformations[1].keys() and "color_jitter" in self.transformations[1].keys():
+                self.non_spatial_transforms = transforms.Compose([
+                    self.transformations[1]['color_jitter'],
+                ])
+            else:
+                self.non_spatial_transforms = transforms.Compose([
+                    self.transformations[1]['gaussian_blur'],
+                    self.transformations[1]['color_jitter'],
+                ])
+            
+
         self.total_frames = total_frames #For meerkats the dataset is 20 frames total
         self.K = K
         self.num_frames = num_frames
@@ -40,17 +67,18 @@ class AnimalClipDataset(Dataset):
         self.zfill_num = zfill_num
         self.load_all_videos(directory)
         self.list_clip_paths = [k for k in self.clips.keys()]
+        self.is_override = is_override
         self.override_value = override_value
         
 
     def __len__(self):
+        if self.is_override:
+            assert isinstance(self.override_value, int) and self.override_value > 0, "Override value must be set to an integer and greater than 0"
+            return self.override_value
         if self.mode == "positive_negative":
             return sum(len(clips) for clips in self.clip_metadata.values())
         elif self.mode == "video_only" or self.mode == "video":
             return len(self.list_clip_paths)
-        elif self.mode == "override":
-            assert self.override_value is not None and isinstance(self.override_value, int), "Override value must be set to an integer"
-            return self.override_value
         else:
             raise Exception(f"Mode ({self.mode}) not recognized")
         
@@ -68,10 +96,16 @@ class AnimalClipDataset(Dataset):
                         #Sample frames when loading the dataset to save memory
                         self.clips[key] = np.asarray(h5_file[key])[interval,...]
                         self.clip_metadata[str(int(key.split("_")[0])).zfill(self.zfill_num)] += [key]
+                        if self.masks:
+                            self.masks[key] = self.masks[key][interval,...]
+            
                 else:
                     for key in h5_file.keys():
                         self.clips[key] = np.asarray(h5_file[key])[0,:,:,:][np.newaxis, :, :, :]
                         self.clip_metadata[str(int(key.split("_")[0])).zfill(self.zfill_num)] += [key]
+                        if self.masks:
+                            self.masks[key] = self.masks[key][0,:,:]
+
         #print(f"meta_data: {self.clip_metadata.keys()}")
         print(f"Total number of animals: {len(self.clip_metadata.keys())}")
         print(f"Total number of clips: {len(self.clips.keys())}")
@@ -85,11 +119,35 @@ class AnimalClipDataset(Dataset):
         # Implement this method to load a clip given its ID.
         video = self.clips[clip_id]
         video = torch.from_numpy(video.astype(np.float32).transpose((0, 3, 1, 2))).contiguous()/255.0
+        if self.masks:
+            mask = torch.tensor(self.masks[clip_id])
+            if mask.ndim == 3:
+                mask = mask.unsqueeze(1)
+            else:
+                mask = mask.unsqueeze(0)
+
         if self.transformations:
-            video = self.transformations(video)
+            i, j, h, w = self.resize_crop.get_params(video, scale=(0.8, 1.0), ratio=(3.0/4.0, 4.0/3.0))
+
+            video = transforms.functional.resized_crop(video, i, j, h, w, size=(224, 224), interpolation=InterpolationMode.BICUBIC)
+            if self.masks:
+                mask = transforms.functional.resized_crop(mask, i, j, h, w, size=(224, 224), interpolation=InterpolationMode.NEAREST)
+
+            if torch.rand(1) < 0.5:
+                video = transforms.functional.hflip(video)
+                if self.masks:
+                    mask = transforms.functional.hflip(mask)
+
+            video = self.non_spatial_transforms(video)
             video = (video-video.amin(keepdim=True)) / (video.amax(keepdim=True)-video.amin(keepdim=True))
+
         if self.num_frames != 1:
+            if self.masks:
+                video = video * mask
             return video
+        
+        if self.masks:
+            video = video * mask
         return video[0,...]
     
     def positive_negative_clips(self):
@@ -133,10 +191,18 @@ if __name__ == "__main__":
     import matplotlib.gridspec as gridspec
     from PIL import Image
     import torchvision.transforms.v2 as transforms
+    import pickle
+
+    with open('../Dataset/meerkat_h5files/Meerkat_masks.pkl', 'rb') as f:
+        masks = pickle.load(f)
+    
+    print(len(masks))
 
     #Read the precomputed cooccurences dictionary
     with open('../Dataset/meerkat_h5files/Cooccurrences.json', 'r') as file:
         cooccurrences = json.load(file)
+
+    print(len(cooccurrences))
 
     def create_gif(frames_folder, gif_path, duration=3):
         frame_files = sorted(os.listdir(frames_folder))  # Get list of frame files sorted alphabetically
@@ -150,16 +216,14 @@ if __name__ == "__main__":
         # Save as GIF
         frames[0].save(gif_path, save_all=True, append_images=frames[1:], loop=0, duration=duration)
     
-    s=1/8.0 #Based on SimCLR strength parameter for supervised learning
-    color_jitter = transforms.ColorJitter(0.8 * s, 0.8 * s, 0.8 * s, 0.2 * s)
-    gaussian = transforms.GaussianBlur(kernel_size=23) #Based on SimCLR, 10% of the image size, sigma = 0.1, 2.0
-    meerkat_transforms = transforms.Compose([
-        transforms.RandomResizedCrop(224, scale=(0.8, 1.0), antialias=True, interpolation=InterpolationMode.BICUBIC), #SimCLR, BYOL
-        transforms.RandomHorizontalFlip(),                  #50% probability based on SimCLR
-        transforms.RandomApply([gaussian], p=0.5),          #50% probability based on SimCLR
-        transforms.RandomApply([color_jitter], p=0.8)       #Based on SimCLR but without color drop (grayscale)
-    ])
-    dataset = AnimalClipDataset("/home/kkno604/data/meerkat_data/h5files/Train/", cooccurrences, num_frames=20, transforms=meerkat_transforms)
+    import sys
+    sys.path.append("..")
+    from augmentations.simclr_augmentations import get_meerkat_transforms
+
+    transformations = get_meerkat_transforms(['random_resized_crop', "horizontal_flip", 'gaussian_blur', "color_jitter"])
+
+    dataset = AnimalClipDataset("/home/kkno604/data/meerkat_data/h5files/Train/", cooccurrences, num_frames=20, transformations=transformations, masks=masks)
+    #dataset = AnimalClipDataset("../Dataset/meerkat_h5files/Train/", cooccurrences, num_frames=20, masks=masks, transformations=True)  #masks=masks, 
     dataloader = DataLoader(dataset, batch_size=1, shuffle=True) # TODO test larger batch size
 
     print("Data loaded")
@@ -169,41 +233,40 @@ if __name__ == "__main__":
         anchor_clip = positive_clips[0]
 
         print(anchor_clip.shape, len(positive_clips), len(negative_clips))
-        '''
-        for k in range(20): #Change this to clip length
-            fig, ((ax1),(ax2)) = plt.subplots(1, 2)
-            ax1.axis('off')
-            ax2.axis('off')
+        
+        # for k in range(20): #Change this to clip length
+        #     fig, ((ax1),(ax2)) = plt.subplots(1, 2)
+        #     ax1.axis('off')
+        #     ax2.axis('off')
 
-            gs2 = gridspec.GridSpecFromSubplotSpec(5, 4, subplot_spec=ax1)
-            axes = []
-            for i, img in enumerate(positive_clips):
-                ax = fig.add_subplot(gs2[i // 4, i % 4])
-                im = img[0,k,:,:,:].cpu().numpy()
-                im = im.transpose(1,2,0)
-                ax.imshow(im)
-                ax.axis('off')
-                axes += [ax]
-            ax1.set_title("Positive observations")
+        #     gs2 = gridspec.GridSpecFromSubplotSpec(5, 4, subplot_spec=ax1)
+        #     axes = []
+        #     for i, img in enumerate(positive_clips):
+        #         ax = fig.add_subplot(gs2[i // 4, i % 4])
+        #         im = img[0,k,:,:,:].cpu().numpy()
+        #         im = im.transpose(1,2,0)
+        #         ax.imshow(im)
+        #         ax.axis('off')
+        #         axes += [ax]
+        #     ax1.set_title("Positive observations")
             
-            plt.subplots_adjust(wspace=0.1, hspace=0.1)
+        #     plt.subplots_adjust(wspace=0.1, hspace=0.1)
 
-            gs3 = gridspec.GridSpecFromSubplotSpec(5, 4, subplot_spec=ax2)
-            n_imgs_section3 = len(negative_clips)
-            axes = []
-            for i, img in enumerate(negative_clips):
-                ax = fig.add_subplot(gs3[i // 4, i % 4])
-                im = img[0,k,:,:,:].cpu().numpy()
-                im = im.transpose(1,2,0)
-                ax.imshow(im)
-                ax.axis('off')
-                axes += [ax]
-            ax2.set_title("Negative observations")
+        #     gs3 = gridspec.GridSpecFromSubplotSpec(5, 4, subplot_spec=ax2)
+        #     n_imgs_section3 = len(negative_clips)
+        #     axes = []
+        #     for i, img in enumerate(negative_clips):
+        #         ax = fig.add_subplot(gs3[i // 4, i % 4])
+        #         im = img[0,k,:,:,:].cpu().numpy()
+        #         im = im.transpose(1,2,0)
+        #         ax.imshow(im)
+        #         ax.axis('off')
+        #         axes += [ax]
+        #     ax2.set_title("Negative observations")
 
-            plt.subplots_adjust(wspace=0.1, hspace=0.1)
+        #     plt.subplots_adjust(wspace=0.1, hspace=0.1)
 
-            #plt.show()
-            plt.savefig("Gif/"+str(k).zfill(2)+".png")
-            plt.close()
-        create_gif("Gif/", "Gif"+str(j).zfill(3)+str(i).zfill(3)+".gif")
-        '''
+        #     #plt.show()
+        #     plt.savefig("../Gif/"+str(k).zfill(2)+".png")
+        #     plt.close()
+        # create_gif("../Gif/", "Gif"+str(j).zfill(3)+str(i).zfill(3)+".gif")
