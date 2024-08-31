@@ -17,7 +17,7 @@ class AnimalClipDataset(Dataset):
         transformations=None, K=20, num_frames=10, 
         total_frames=20, mode="positive_negative",  
         zfill_num=4, is_override=False, override_value=None, 
-        masks=None
+        masks=None, apply_mask_percentage=1.0
     ):
         """
         Args:
@@ -33,6 +33,7 @@ class AnimalClipDataset(Dataset):
         self.clips = dict()                                     #clips (dict): Dictionary holding clip arrays {clip_ids: numpy_array}.
         self.animal_cooccurrences = animal_cooccurrences
         self.masks = masks
+        self.apply_mask_percentage = apply_mask_percentage
 
         ## clip_paths to a list of clip paths from a dict. Get values into a dict...
         self.transformations = transformations # (transformations already composed; dictionary before composing)
@@ -98,7 +99,6 @@ class AnimalClipDataset(Dataset):
                         self.clip_metadata[str(int(key.split("_")[0])).zfill(self.zfill_num)] += [key]
                         if self.masks:
                             self.masks[key] = self.masks[key][interval,...]
-            
                 else:
                     for key in h5_file.keys():
                         self.clips[key] = np.asarray(h5_file[key])[0,:,:,:][np.newaxis, :, :, :]
@@ -119,7 +119,10 @@ class AnimalClipDataset(Dataset):
         # Implement this method to load a clip given its ID.
         video = self.clips[clip_id]
         video = torch.from_numpy(video.astype(np.float32).transpose((0, 3, 1, 2))).contiguous()/255.0
-        if self.masks:
+
+        do_mask = random.random() <= self.apply_mask_percentage
+
+        if self.masks and do_mask:
             mask = torch.tensor(self.masks[clip_id])
             if mask.ndim == 3:
                 mask = mask.unsqueeze(1)
@@ -130,23 +133,23 @@ class AnimalClipDataset(Dataset):
             i, j, h, w = self.resize_crop.get_params(video, scale=(0.8, 1.0), ratio=(3.0/4.0, 4.0/3.0))
 
             video = transforms.functional.resized_crop(video, i, j, h, w, size=(224, 224), interpolation=InterpolationMode.BICUBIC)
-            if self.masks:
+            if self.masks and do_mask:
                 mask = transforms.functional.resized_crop(mask, i, j, h, w, size=(224, 224), interpolation=InterpolationMode.NEAREST)
 
             if torch.rand(1) < 0.5:
                 video = transforms.functional.hflip(video)
-                if self.masks:
+                if self.masks and do_mask:
                     mask = transforms.functional.hflip(mask)
 
             video = self.non_spatial_transforms(video)
             video = (video-video.amin(keepdim=True)) / (video.amax(keepdim=True)-video.amin(keepdim=True))
 
         if self.num_frames != 1:
-            if self.masks:
+            if self.masks and do_mask:
                 video = video * mask
             return video
         
-        if self.masks:
+        if self.masks and do_mask:
             video = video * mask
         return video[0,...]
     
