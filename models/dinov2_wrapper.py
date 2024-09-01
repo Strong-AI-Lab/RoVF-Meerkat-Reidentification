@@ -1,9 +1,11 @@
 import torch
 import torch.nn as nn
+
+import transformers 
 from transformers import AutoModel
 
 class DINOv2VideoWrapper(nn.Module):
-    def __init__(self, dino_model_name, output_dim, forward_strat: str="cat", sequence_length=None, num_frames: int=1, dropout_rate=0.0):
+    def __init__(self, dino_model_name, output_dim, forward_strat: str="cat", sequence_length=None, num_frames: int=1, dropout_rate=0.1):
         super(DINOv2VideoWrapper, self).__init__()
         
         # Load the DINOv2 model
@@ -74,12 +76,13 @@ class DINOv2VideoWrapper(nn.Module):
         if self.forward_strat == "cat": 
             #output_tensor = torch.cat(cls_outputs, dim=1) # (b, sl * #frames, dm)
             output_tensor = cls_outputs.view(batch_size, -1, outputs.size(-1))
-            output_tensor = self.dropout1(output_tensor)
+            
             # flatten.
 
             # note: sequence length should already count the number of frames.
-            output_tensor = output_tensor.view(-1, self.sequence_length*self.dino_output_dim)
+            output_tensor = output_tensor.view(batch_size, -1) #self.sequence_length*self.dino_output_dim)
             # b, sl*#frames*dm
+            output_tensor = self.dropout1(output_tensor)
         elif self.forward_strat == "average" or self.forward_strat == "avg" or self.forward_strat == "mean":
             #stacked_tensors = torch.stack(cls_outputs, dim=1) # (b, #frames, sl, dm)
             stacked_tensors = self.dropout1(cls_outputs)
