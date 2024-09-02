@@ -59,40 +59,41 @@ class DINOv2VideoWrapper(nn.Module):
         # video.size() = batch, #frames, #channels, height, width
         assert len(video.size()) == 5, f"video.size(): {video.size()}; expected 5 dimensions (batch, #frames, #channels, height, width)."
         
-        #cls_outputs = [self.dino(video[:,i,:,:,:]).last_hidden_state[:, :, :] for i in range(video.size(1))]
-        #num_frames = len(cls_outputs)
+        cls_outputs = [self.dino(video[:,i,:,:,:]).last_hidden_state[:, :, :] for i in range(video.size(1))]
+        num_frames = len(cls_outputs)
 
-        batch_size, num_frames, channels, height, width = video.size()
+        #batch_size, num_frames, channels, height, width = video.size()
         # Reshape the video tensor to combine the batch and frame dimensions (so can run through everything at once; efficiency improvement)
-        video = video.view(-1, channels, height, width)  # Shape: (batch_size * num_frames, channels, height, width)
+        # this makes it memory inefficient. 
+        #video = video.view(-1, channels, height, width)  # Shape: (batch_size * num_frames, channels, height, width)
         # Pass the entire batch through the model in one go
-        outputs = self.dino(video).last_hidden_state  # Assuming self.dino can handle batch processing
+        #outputs = self.dino(video).last_hidden_state  # Assuming self.dino can handle batch processing
         # Reshape the output to separate the batch and frame dimensions again
-        cls_outputs = outputs.view(batch_size, num_frames, -1, outputs.size(-1))
+        #cls_outputs = outputs.view(batch_size, num_frames, -1, outputs.size(-1))
 
 
         assert len(cls_outputs[0].size()) == 3, f"The output of the DINOv2 model is not of the expected shape. Expected 3 dimensions, got {len(cls_outputs[0].size())}"
         
         if self.forward_strat == "cat": 
-            #output_tensor = torch.cat(cls_outputs, dim=1) # (b, sl * #frames, dm)
-            output_tensor = cls_outputs.view(batch_size, -1, outputs.size(-1))
+            output_tensor = torch.cat(cls_outputs, dim=1) # (b, sl * #frames, dm)
+            #output_tensor = cls_outputs.view(batch_size, -1, outputs.size(-1))
             
             # flatten.
 
             # note: sequence length should already count the number of frames.
             output_tensor = output_tensor.view(batch_size, -1) #self.sequence_length*self.dino_output_dim)
             # b, sl*#frames*dm
-            output_tensor = self.dropout1(output_tensor)
+            output_tensor = self.dropout1(output_tensor) 
         elif self.forward_strat == "average" or self.forward_strat == "avg" or self.forward_strat == "mean":
-            #stacked_tensors = torch.stack(cls_outputs, dim=1) # (b, #frames, sl, dm)
-            stacked_tensors = self.dropout1(cls_outputs)
+            stacked_tensors = torch.stack(cls_outputs, dim=1) # (b, #frames, sl, dm)
+            #stacked_tensors = self.dropout1(cls_outputs)
             output_tensor = torch.mean(stacked_tensors, dim=-2) # average along sequence length dimension (each patch)
             # (b, #frames, dm)
             output_tensor = torch.mean(output_tensor, dim=-2)# average along frame dimension
             # (b, dm)
         elif self.forward_strat == "max" or self.forward_strat == "maximum":
-            #stacked_tensors = torch.stack(cls_outputs, dim=1) # (b, #frames, sl, dm)
-            stacked_tensors = self.dropout1(cls_outputs)
+            stacked_tensors = torch.stack(cls_outputs, dim=1) # (b, #frames, sl, dm)
+            #stacked_tensors = self.dropout1(cls_outputs)
             output_tensor = torch.max(stacked_tensors, dim=-2).values # max along sequence length dimension (each patch)
             # (b, #frames, dm)
             output_tensor = torch.max(output_tensor, dim=-2).values # max along frame dimension

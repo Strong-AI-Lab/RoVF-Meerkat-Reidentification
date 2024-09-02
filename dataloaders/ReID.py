@@ -17,7 +17,7 @@ class AnimalClipDataset(Dataset):
         transformations=None, K=20, num_frames=10, 
         total_frames=20, mode="positive_negative",  
         zfill_num=4, is_override=False, override_value=None, 
-        masks=None, apply_mask_percentage=1.0
+        masks=None, apply_mask_percentage=1.0, device="cpu"
     ):
         """
         Args:
@@ -66,7 +66,8 @@ class AnimalClipDataset(Dataset):
         self.num_frames = num_frames
         self.mode = mode
         self.zfill_num = zfill_num
-        self.load_all_videos(directory)
+        self.device = device
+        self.load_all_videos(directory, device)
         self.list_clip_paths = [k for k in self.clips.keys()]
         self.is_override = is_override
         self.override_value = override_value
@@ -83,7 +84,7 @@ class AnimalClipDataset(Dataset):
         else:
             raise Exception(f"Mode ({self.mode}) not recognized")
         
-    def load_all_videos(self, directory):
+    def load_all_videos(self, directory, device):
         """
         Read the h5 dataset files into a dictionary of numpy arrays
         """
@@ -95,13 +96,19 @@ class AnimalClipDataset(Dataset):
                 if self.num_frames != 1:
                     for key in h5_file.keys():
                         #Sample frames when loading the dataset to save memory
-                        self.clips[key] = np.asarray(h5_file[key])[interval,...]
+                        video = np.asarray(h5_file[key])[interval,...]
+                        video = torch.from_numpy(video.astype(np.float32).transpose((0, 3, 1, 2))).contiguous()/255.0
+                        video.to(device)
+                        self.clips[key] = video
                         self.clip_metadata[str(int(key.split("_")[0])).zfill(self.zfill_num)] += [key]
                         if self.masks:
                             self.masks[key] = self.masks[key][interval,...]
                 else:
                     for key in h5_file.keys():
-                        self.clips[key] = np.asarray(h5_file[key])[0,:,:,:][np.newaxis, :, :, :]
+                        video = np.asarray(h5_file[key])[0,:,:,:][np.newaxis, :, :, :]
+                        video = torch.from_numpy(video.astype(np.float32).transpose((0, 3, 1, 2))).contiguous()/255.0
+                        video.to(device)
+                        self.clips[key] = video
                         self.clip_metadata[str(int(key.split("_")[0])).zfill(self.zfill_num)] += [key]
                         if self.masks:
                             self.masks[key] = self.masks[key][0,:,:]
@@ -118,7 +125,7 @@ class AnimalClipDataset(Dataset):
     def load_clip(self, clip_id):
         # Implement this method to load a clip given its ID.
         video = self.clips[clip_id]
-        video = torch.from_numpy(video.astype(np.float32).transpose((0, 3, 1, 2))).contiguous()/255.0
+        #video = torch.from_numpy(video.astype(np.float32).transpose((0, 3, 1, 2))).contiguous()/255.0
 
         do_mask = random.random() <= self.apply_mask_percentage
 
