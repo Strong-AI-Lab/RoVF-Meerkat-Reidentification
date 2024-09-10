@@ -111,7 +111,7 @@ def load_model_from_checkpoint(checkpoint_path: str):
             dropout_rate=dropout_rate
         )
         
-    elif model_type == 'recurrent' or "recurrent_perceiver":
+    elif model_type == 'recurrent' or model_type == "recurrent_perceiver":
         # Extract recurrent model specific parameters
         #perceiver_config = model_details.get('perceiver_config', {})  # assuming this is nested somewhere
         perceiver_config = {
@@ -135,7 +135,7 @@ def load_model_from_checkpoint(checkpoint_path: str):
             freeze_image_model=freeze_image_model
         )
     elif model_type == 'recurrent_decoder':
-        
+        print(f"model_details: {model_details}")
         model = RecurrentDecoder(
             v_size=convert_none_str_to_none(model_details.get("v_size")),
             d_model=convert_none_str_to_none(model_details.get("d_model")),

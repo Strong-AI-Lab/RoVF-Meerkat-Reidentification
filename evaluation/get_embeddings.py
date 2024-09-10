@@ -21,6 +21,7 @@ from dataloaders.ReID import AnimalClipDataset
 from models.dinov2_wrapper import DINOv2VideoWrapper
 from models.perceiver_wrapper import CrossAttention, TransformerEncoder, Perceiver
 from models.recurrent_wrapper import RecurrentWrapper
+from models.recurrent_decoder import RecurrentDecoder
 from training_functions.load_model_helper import dino_model_load, recurrent_model_perceiver_load
 from training_functions.dataloader_helper import dataloader_creation
 
