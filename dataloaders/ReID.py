@@ -10,6 +10,7 @@ import os
 from collections import defaultdict
 from torchvision.transforms.v2.functional import InterpolationMode
 import torchvision.transforms.v2 as transforms
+import copy
 
 class AnimalClipDataset(Dataset):
     def __init__(

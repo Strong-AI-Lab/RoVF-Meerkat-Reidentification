@@ -22,13 +22,16 @@ class CrossAttention(nn.Module):
         
         if len(data.size()) == 2:
             #assumes (b, slen)
-            data = data.unsqueeze(1)
-            #data = data.view(data.size(0), -1, self.data_dim)
+            #data = data.unsqueeze(1)
+            data = data.view(data.size(0), -1, self.data_dim)
         
         #print(f"data.size(): {data.size()}")
             
         key = self.key_proj(data)
         value = self.value_proj(data)
+
+        assert len(key.size()) == 3, f"key.size(): {key.size()}; expected 3 dimensions."
+        assert len(value.size()) == 3, f"value.size(): {value.size()}; expected 3 dimensions."
 
         #print()
         #print(f"query.size(): {query.size()}")
@@ -40,6 +43,7 @@ class CrossAttention(nn.Module):
         attn_output, _ = self.attention(
             query,
             key,
+            #value.transpose(0, 1)
             value
         )
         return attn_output
@@ -65,12 +69,18 @@ class Perceiver(nn.Module):
         self.latents = None # store recurrent modification of initial value.
         
         # Initialize positional embeddings for latents
+        # + 257 is hardcoded for now, slen of image model.
         self.positional_embeddings = nn.Parameter(torch.randn(num_latents, latent_dim))
+        #self.positional_embeddings = nn.Parameter(torch.randn(num_latents+257, latent_dim))
         nn.init.xavier_uniform_(self.positional_embeddings)
 
         #self.latents = nn.Parameter(torch.zeros(num_latents, latent_dim))
         
         self.latent_batch_dimension_set = False
+
+        self.num_latents = num_latents
+        self.input_dim = input_dim
+        #assert input_dim == latent_dim, f"input_dim: {input_dim}; latent_dim: {latent_dim}; input_dim must be equal to latent_dim."
 
         # Ensure the key and value projections in CrossAttention are compatible with the input dimension.
         self.cross_attention = CrossAttention(latent_dim, input_dim, num_heads) # Adjusted to project input data correctly
@@ -79,6 +89,7 @@ class Perceiver(nn.Module):
         if output_dim is None:
             self.output_layer = None
         else:
+            #self.output_layer = nn.Linear((num_latents+257)*latent_dim, output_dim)
             self.output_layer = nn.Linear(num_latents*latent_dim, output_dim)
 
     def set_latent_batch_dimension(self, batch_size, latents):
@@ -94,7 +105,12 @@ class Perceiver(nn.Module):
     def forward(self, x, is_reset_latents=False):
         # x.size() == (batch_size, seq_len, input_dim)
         
-        assert len(x.size()) == 3, f"x.size(): {x.size()}; expected 3 dimensions."
+        #assert len(x.size()) == 3, f"x.size(): {x.size()}; expected 3 dimensions."
+        if len(x.size()) != 3:
+            x = x.view(x.size(0), -1)
+            x = x.unsqueeze(-1).repeat(1, 1, self.input_dim)
+            
+            #, self.data_dim)
 
         batch_size = x.size(0)
 
@@ -106,12 +122,19 @@ class Perceiver(nn.Module):
             latents = self.latents
 
         # Add positional embeddings to latents
+
+        # for self-attn add image embeddings to latents
+        #print(f"latents.size(): {latents.size()}")
+        #print(f"x.size(): {x.size()}")
+        
+        #latents = torch.cat([latents, x], dim=1)
+
         latents = latents + self.positional_embeddings.unsqueeze(0).repeat(batch_size, 1, 1)
 
         x = self.cross_attention(latents, x)
         x = self.transformer(x)
 
-        latents = x
+       # latents = x[:,:self.num_latents,:]
 
         if self.output_layer is not None:
             x = self.output_layer(x.view(x.size(0), -1))
@@ -124,17 +147,17 @@ class Perceiver(nn.Module):
 
 def cross_attention_test():
     latent_dim = 32
-    data_dim = 64
+    data_dim = 1
     num_heads=2
-    latents = torch.randn(2, 2, latent_dim, requires_grad=True)
-    data = torch.randn(2, 2, data_dim, requires_grad=True)
+    latents = torch.randn(2, 50, latent_dim, requires_grad=True)
+    data = torch.randn(2, 2, requires_grad=True)
 
     model = CrossAttention(latent_dim, data_dim, num_heads)
     optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
     criterion = torch.nn.MSELoss()
 
     output = model(latents, data)
-
+    print(f"output.size(): {output.size()}")
     # Create a simple target
     target = torch.randn_like(output)
     loss = criterion(output, target)
@@ -142,20 +165,20 @@ def cross_attention_test():
     optimizer.zero_grad()
     loss.backward()
 
-    print(f"Gradient for query_proj.weight: {model.query_proj.weight.grad}")
-    print(f"Gradient for key_proj.weight: {model.key_proj.weight.grad}")
-    print(f"Gradient for value_proj.weight: {model.value_proj.weight.grad}")
+    #print(f"Gradient for query_proj.weight: {model.query_proj.weight.grad}")
+    #print(f"Gradient for key_proj.weight: {model.key_proj.weight.grad}")
+    #print(f"Gradient for value_proj.weight: {model.value_proj.weight.grad}")
 
     optimizer.step()
 
 def perceiver_test():
     perceiver = Perceiver(
-        input_dim=10, latent_dim=32, num_heads=1, num_latents=64, 
+        input_dim=32, latent_dim=32, num_heads=1, num_latents=64, 
         num_transformer_layers=2, dropout=0.1, output_dim=10
     )
     
     # Example input
-    x = torch.randn(5, 10, 10)
+    x = torch.randn(5, 122, 32)
     
     # Forward pass
     latents = perceiver(x, is_reset_latents=True)

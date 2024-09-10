@@ -108,7 +108,7 @@ class RecurrentWrapper(nn.Module):
 
         prediction_list = []
         for i in range(video_embeddings.size(1)):
-            pred = self.recurrence_model(video_embeddings[:,i,:,:], is_reset_latents=False)
+            pred = self.recurrence_model(video_embeddings[:,i,:], is_reset_latents=False)
             prediction_list.append(pred)
 
         self.reset_latents()

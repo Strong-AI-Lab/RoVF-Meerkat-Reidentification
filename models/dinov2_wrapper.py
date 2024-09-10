@@ -36,7 +36,6 @@ class DINOv2VideoWrapper(nn.Module):
             )
         else:
             self.linear = None
-        
 
         self.dropout1 = nn.Dropout(dropout_rate)
         self.dropout2 = nn.Dropout(dropout_rate)
@@ -70,7 +69,7 @@ class DINOv2VideoWrapper(nn.Module):
         #outputs = self.dino(video).last_hidden_state  # Assuming self.dino can handle batch processing
         # Reshape the output to separate the batch and frame dimensions again
         #cls_outputs = outputs.view(batch_size, num_frames, -1, outputs.size(-1))
-
+        batch_size = video.size(0)
 
         assert len(cls_outputs[0].size()) == 3, f"The output of the DINOv2 model is not of the expected shape. Expected 3 dimensions, got {len(cls_outputs[0].size())}"
         

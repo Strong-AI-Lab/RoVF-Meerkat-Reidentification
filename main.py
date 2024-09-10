@@ -4,15 +4,21 @@ from training_functions.process_yaml import process_yaml_for_training
 import torch
 import torch.nn as nn
 
+#torch.autograd.set_detect_anomaly(True)
+
 import numpy as np
 
 import transformers
 from transformers import AutoModel
 
 import time
+import pickle
+import os
 
 import torch.multiprocessing as mp
 mp.set_sharing_strategy('file_system')
+
+from training_functions.load_model_helper import load_model_from_checkpoint
 
 def import_recurrence_model():
     from models.perceiver_wrapper import CrossAttention, TransformerEncoder, Perceiver
@@ -27,17 +33,87 @@ def import_dino_model():
     from training_functions.dataloader_helper import dataloader_creation as get_dataloader
     from get_anchors.image_model import get_anchor_pos_and_neg_dino as anchor_fn
 
+'''
+def check_for_nan_hook(module, input, output):
+    if isinstance(output, torch.Tensor) and torch.isnan(output).any():
+        print(f"NaN detected in layer: {module}")
+        print(f"Output tensor with NaN values: {output}")
+
+def register_nan_hooks(model):
+    for layer in model.modules():
+        layer.register_forward_hook(check_for_nan_hook)
+'''
+
+def get_emb(args):
+    from evaluation.get_embeddings import get_embeddings
+    from dataloaders.ReID import AnimalClipDataset
+    from training_functions.dataloader_helper import dataloader_creation as get_dataloader
+
+    from models.dinov2_wrapper import DINOv2VideoWrapper
+    from models.perceiver_wrapper import CrossAttention, TransformerEncoder, Perceiver
+    from models.recurrent_wrapper import RecurrentWrapper
+    from training_functions.load_model_helper import dino_model_load, recurrent_model_perceiver_load, load_model_from_checkpoint
+    masks = None
+    if args.mask_path != "" and args.mask_path is not None:
+        with open(args.mask_path, "r") as f:
+            masks = pickle.load(f)
+
+    embeddings = get_embeddings(
+        model_ckpt=args.ckpt_path, transformations=None, cooccurrences_filepath=args.cooccurrences_filepath, 
+        clips_directory=args.clips_directory, num_frames=args.num_frames, mode=args.dlmode, K=args.K, 
+        total_frames=args.total_frames, zfill_num=args.zfill_num, is_override=args.is_override, 
+        override_value=args.override_value, masks=masks, apply_mask_percentage=args.apply_mask_percentage, 
+        device=args.device
+    )
+
+    # remove .pt from ckpt_path and add _embeddings.pkl
+    with open (args.ckpt_path[:-3] + "_embeddings.pkl", "wb") as f:
+        pickle.dump(embeddings, f)
+
+def get_metrics(args):
+    from evaluation.get_metrics import get_metrics, compute_distances, indices_of_smallest, open_pickle
+    import pandas as pd
+
+    models = [args.embedding_path]
+    # Load dataframe of test examples
+    df = pd.read_csv(args.dataframe_path)
+    
+    # Get metrics for all models
+    metrics = get_metrics(models, df)
+    
+    # Print the results
+    for i, (top1, top3, unique_top3) in enumerate(metrics):
+        print(f"Model {i}: Top-1 Accuracy: {top1}, Top-3 Accuracy: {top3}, Unique in Top-3: {unique_top3}")
+
+    # save results in same directory as embeddings (assume .pkl file extention)
+    with open(args.embedding_path[:-4] + "_metrics.txt", "w") as f:
+        f.write(f"Model {i}: Top-1 Accuracy: {top1}, Top-3 Accuracy: {top3}, Unique in Top-3: {unique_top3}")
+
 def main():
     # Create the parser
     parser = argparse.ArgumentParser(description="A script that processes command-line inputs.")
 
     # Add arguments
-    parser.add_argument("mode", type=str, choices=["train","test"], help="The mode to run the script in. Allowed values: train, test.")
+    parser.add_argument("mode", type=str, choices=["train","test", "get_metrics", "get_embeddings"], help="The mode to run the script in. Allowed values: train, test.")
     parser.add_argument("yaml_path", type=str, help="Path to a yaml file specifying important details for this script.")
     parser.add_argument("-d", "--device", default="cpu", type=str, help="The device to run the script on. Default: cuda.")
-    parser.add_argument("-hs", "--hyperparameter_search", action="store_true", help="If True, run hyperparameter search.")
     #parser.add_argument("-ce", "--current_epoch", default=0, type=int, help="If resuming training, insert the current epoch to resume training from.")
     parser.add_argument("-cp", "--ckpt_path", default="", type=str, help="If resuming training, load previous model weights from this checkpoint.")
+    parser.add_argument("-m", "--mask_path", default=None, type=str, help="Path to a pickle file containing masks for the dataset.")
+    parser.add_argument("-am", "--apply_mask_percentage", default=1.0, type=float, help="The percentage of masks to apply to the dataset. Default: 1.0.")
+    parser.add_argument("-o", "--override_value", default=None, type=int, help="If overriding the number of frames, use this value.")
+    parser.add_argument("-is", "--is_override", default=False, type=bool, help="If overriding the number of frames, set this to True.")
+    parser.add_argument("-z", "--zfill_num", default=4, type=int, help="The number of zeros to pad the frame number with. Default: 4.")
+    parser.add_argument("-tf", "--total_frames", default=20, type=int, help="The total number of frames in a clip. Default: 20.")
+    parser.add_argument("-K", "--K", default=20, type=int, help="The number of clips to sample. Default: 20.")
+    parser.add_argument("-nf", "--num_frames", default=10, type=int, help="The number of frames to sample from a clip. Default: 10.")
+    parser.add_argument("-dlm", "--dlmode", default="Test", type=str, help="The mode to run the script in. Default: Test.")
+    parser.add_argument("-cd", "--clips_directory", default="Dataset/meerkat_h5files/clips/Test", type=str, help="The directory containing the clips.")
+    parser.add_argument("-co", "--cooccurrences_filepath", default="Dataset/meerkat_h5files/Cooccurrences.json", type=str, help="The path to the cooccurrences file.")
+    parser.add_argument("-ep", "--embedding_path", default=None, type=str, help="The path to save the embeddings to or load the embeddings.")
+    parser.add_argument("-df", "--dataframe_path", default="Dataset/meerkat_h5files/Precomputed_test_examples_meerkat.csv", type=str, help="The path to the dataframe to load.")
+    parser.add_argument("-lnev", "--ln_epsilon_value", default=None, type=float, help="The value to set the LayerNorm epsilon")
+    parser.add_argument("-nan", "--detect_nan", default=False, type=bool, help="Detect NaN values in the model.")
 
     # Parse the arguments
     args = parser.parse_args()
@@ -48,14 +124,62 @@ def main():
     #current_epoch = args.current_epoch
     ckpt_path = args.ckpt_path
     device = args.device
-
-    # Process the yaml file
-    data = process_yaml_for_training(yaml_path)
+    
+    #mask_path = args.mask_path
+    #apply_mask_percentage = args.apply_mask_percentage
+    #override_value = args.override_value
+    #is_override = args.is_override
+    #zfill_num = args.zfill_num
+    #total_frames = args.total_frames
+    #K = args.K
+    #num_frames = args.num_frames
+    #dlmode = args.dlmode
+    #clips_directory = args.clips_directory
+    #cooccurrences_filepath = args.cooccurrences_filepath
 
     if mode == "train":
-        train(data, device, ckpt_path)
+        # Process the yaml file
+        data = process_yaml_for_training(yaml_path)
+        train(data, device, ckpt_path, args.ln_epsilon_value, args.detect_nan)
+    elif mode == "get_embeddings":
+        assert ckpt_path != "" and ckpt_path is not None, "Need a checkpoint path to load the model."
+        assert args.clips_directory != "" and args.clips_directory is not None, "Need a clips directory to load the clips."
+        assert args.cooccurrences_filepath != "" and args.cooccurrences_filepath is not None, "Need a cooccurrences file to load the cooccurrences."
+        
+        get_emb(args)
 
-def train(yaml_dict, device, ckpt_path):
+    elif mode == "get_metrics":
+        #assert ckpt_path != "" and ckpt_path is not None, "Need a checkpoint path to load the model."
+        #assert args.embedding_path != "" and args.embedding_path is not None, "Need a path to the embeddings."
+        if args.embedding_path == "" or args.embedding_path is None:
+            assert ckpt_path != "" and ckpt_path is not None, "Need a checkpoint path to load the model."
+            print(f"Embedding path not provided. Will load embeddings from {ckpt_path[:-3] + '_embeddings.pkl'}")
+            args.embedding_path = ckpt_path[:-3] + "_embeddings.pkl"
+            if not os.path.exists(args.embedding_path):
+                raise FileNotFoundError(f"Embeddings file {args.embedding_path} does not exist.")
+        assert args.dataframe_path != "" and args.dataframe_path is not None, "Need a path to the dataframe."
+        
+        get_metrics(args)
+    elif mode == "test":
+        assert ckpt_path != "" and ckpt_path is not None, "Need a checkpoint path to load the model."
+        
+        assert args.dataframe_path != "" and args.dataframe_path is not None, "Need a path to the dataframe."
+        assert args.clips_directory != "" and args.clips_directory is not None, "Need a clips directory to load the clips."
+        assert args.cooccurrences_filepath != "" and args.cooccurrences_filepath is not None, "Need a cooccurrences file to load the cooccurrences."
+        
+        get_emb(args)
+        if args.embedding_path == "" or args.embedding_path is None:
+            print(f"Embedding path not provided. Will load embeddings from {ckpt_path[:-3] + '_embeddings.pkl'}")
+            args.embedding_path = ckpt_path[:-3] + "_embeddings.pkl"
+            if not os.path.exists(args.embedding_path):
+                raise FileNotFoundError(f"Embeddings file {args.embedding_path} does not exist.")
+
+        get_metrics(args) 
+        
+    else:
+        raise ValueError(f"Invalid mode: {mode}.")
+
+def train(yaml_dict, device, ckpt_path, ln_epsilon_value, detect_nan=False):
 
     from dataloaders.ReID import AnimalClipDataset
     from augmentations.simclr_augmentations import get_meerkat_transforms
@@ -73,6 +197,7 @@ def train(yaml_dict, device, ckpt_path):
     from collections import defaultdict
     from PIL import Image
     import pickle
+    from training_functions.load_model_helper import set_layernorm_eps_recursive, set_dropout_p_recursive
 
     model = None
     if yaml_dict["model_details"]["model_type"] == "dino":
@@ -84,12 +209,13 @@ def train(yaml_dict, device, ckpt_path):
         config = {
             "dino_model_name": yaml_dict["model_details"]["dino_model_name"],
             "output_dim": yaml_dict["model_details"]["output_dim"],
-            "forward_strat": yaml_dict["model_details"]["strategy"],
+            "forward_strat": yaml_dict["model_details"]["forward_strat"],
             "sequence_length": yaml_dict["model_details"]["sequence_length"],
             "num_frames": yaml_dict["model_details"]["num_frames"],
             "dropout_rate": yaml_dict["model_details"]["dropout_rate"]
         }
         model = model_load_helper(**config)
+
     elif yaml_dict["model_details"]["model_type"] == "recurrent" or yaml_dict["model_details"]["model_type"] == "recurrent_perceiver":
         #import_recurrence_model()
         from models.perceiver_wrapper import CrossAttention, TransformerEncoder, Perceiver
@@ -113,10 +239,36 @@ def train(yaml_dict, device, ckpt_path):
             "freeze_image_model": yaml_dict["model_details"]["freeze_image_model"]
         }
         model = model_load_helper(**config)
+    elif yaml_dict["model_details"]["model_type"] == "recurrent_decoder":
+        from models.recurrent_decoder import RecurrentDecoder
+        from training_functions.dataloader_helper import dataloader_creation as get_dataloader
+        from get_anchors.recurrence_decoder_model import get_anchor_pos_and_neg_recurrence as anchor_fn
+        model = RecurrentDecoder(
+            v_size=yaml_dict["model_details"]["v_size"],
+            d_model=yaml_dict["model_details"]["d_model"],
+            nhead=yaml_dict["model_details"]["nhead"],
+            num_layers=yaml_dict["model_details"]["num_layers"],
+            dim_feedforward=yaml_dict["model_details"]["dim_feedforward"],
+            dropout=yaml_dict["model_details"]["dropout_rate"], 
+            activation=yaml_dict["model_details"]["activation"],
+            temperature=yaml_dict["model_details"]["temperature"],
+            image_model_name=yaml_dict["model_details"]["image_model_name"],
+            freeze_image_model=yaml_dict["model_details"]["freeze_image_model"]
+        )
     else:
         raise ValueError("Invalid model type.")
 
+    #print(f"detect_nan: {detect_nan}")
+    #if detect_nan:
+    #    print("Detecting NaN values in model.")
+    #    register_nan_hooks(model) 
+
+    if ln_epsilon_value is not None:
+        set_layernorm_eps_recursive(model, ln_epsilon_value)
+    set_dropout_p_recursive(model, yaml_dict["model_details"]["dropout_rate"])
+
     start_epoch = 0
+    checkpoint = None
     if ckpt_path != "":
         checkpoint = torch.load(ckpt_path)
         model.load_state_dict(checkpoint["model_state_dict"])
@@ -168,6 +320,9 @@ def train(yaml_dict, device, ckpt_path):
         )
     else:
         raise ValueError("Invalid optimizer.")
+    if optimizer is not None and checkpoint is not None and "optimizer_state_dict" in checkpoint.keys():
+        print(f"Loading optimizer state dict.")
+        optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
 
     scheduler = None
     if yaml_dict["training_details"]["scheduler_details"]["name"] == "WarmupCosineDecayScheduler":
@@ -180,7 +335,6 @@ def train(yaml_dict, device, ckpt_path):
             max_lr=yaml_dict["training_details"]["scheduler_details"]["max_lr"],
             end_lr=yaml_dict["training_details"]["scheduler_details"]["end_lr"]
         )
-        scheduler.update_current_step(start_epoch)
 
     masks = None
     if yaml_dict["dataloader_details"]["mask_path"] != "" and isinstance(yaml_dict["dataloader_details"]["mask_path"], str):
@@ -189,7 +343,7 @@ def train(yaml_dict, device, ckpt_path):
     apply_mask_percentage = yaml_dict["dataloader_details"]["apply_mask_percentage"]
 
     trainloader = get_dataloader(
-        transformations=yaml_dict["dataloader_details"]["transforms"], # should be a list of strings
+        transformations=yaml_dict["dataloader_details"]["transformations"], # should be a list of strings
         cooccurrences_filepath=yaml_dict["dataloader_details"]["cooccurrences_filepath"],
         clips_directory=yaml_dict["dataloader_details"]["clips_directory"]+"Train/",
         num_frames=yaml_dict["dataloader_details"]["num_frames"],
@@ -200,7 +354,6 @@ def train(yaml_dict, device, ckpt_path):
         is_override=yaml_dict["dataloader_details"]["is_override"],
         override_value=yaml_dict["dataloader_details"]["override_value"],
         masks=masks, apply_mask_percentage=apply_mask_percentage, device=device
-
     )
     valloader = get_dataloader(
         transformations=None,
@@ -215,11 +368,16 @@ def train(yaml_dict, device, ckpt_path):
         masks=None, apply_mask_percentage=1.0, device=device
     )
 
+    if scheduler is not None:
+        scheduler_current_iter = start_epoch * len(trainloader)
+        scheduler.update_current_step(scheduler_current_iter)
+
     metadata = str(yaml_dict)
 
     train(
         model, model_type, epochs, trainloader, valloader, anchor_fn, similarity_measure, optimizer, scheduler,
-        criterion, device, log_path, metadata, batch_size, clip_value, start_epoch
+        criterion, device, log_path, metadata, batch_size, clip_value, start_epoch,
+        accumulation_steps=yaml_dict["training_details"]["accumulation_steps"] if "accumulation_steps" in yaml_dict["training_details"] else 1
     )
 
 

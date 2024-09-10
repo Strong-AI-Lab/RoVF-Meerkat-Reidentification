@@ -3,7 +3,7 @@ import torch.nn as nn
 
 def val(
     model, model_type, valloader, device, anchor_fn, similarity_measure, 
-    criterion, log_path, batch_size, current_epoch, num_epochs
+    criterion, log_path, batch_size, current_epoch, num_epochs, do_metrics=False
 ):
 
     assert similarity_measure is not None, "similarity_measure must be provided."
@@ -22,7 +22,7 @@ def val(
 
     # current_epoch should have 1 added already.
 
-    loss_log_path_epoch = f"{log_path}_val_epoch_losses.txt"
+    loss_log_path_epoch = f"{log_path}val_epoch_losses.txt"
 
     model.to(device)
 
@@ -54,6 +54,9 @@ def val(
         cumulative_loss += loss.item()
         counter += 1
 
+        if not do_metrics:
+            continue
+
         # get top-1 and top-3 accuracy.
         query = anchor # (d_model)
         gallery = torch.stack([positive]+negative_list, dim=0)
@@ -78,6 +81,11 @@ def val(
 
     
     avg_loss = cumulative_loss / counter
+    if not do_metrics:
+        print(f"Epoch [{current_epoch}/{num_epochs}], Average Val Loss: {avg_loss}")
+        with open(loss_log_path_epoch, "a") as loss_log_file:
+            loss_log_file.write(f"Epoch [{current_epoch}/{num_epochs}], Average Loss: {avg_loss}\n")
+        return avg_loss, None, None
     print(f"Epoch [{current_epoch}/{num_epochs}], Average Val Loss: {avg_loss}, Top-1 Total Correct: {top_1_correct}/{top_1_total} ({top_1_correct/top_1_total}), Top-3 Total Correct: {top_3_correct}/{top_3_total} ({top_3_correct/top_3_total})")
     with open(loss_log_path_epoch, "a") as loss_log_file:
         loss_log_file.write(f"Epoch [{current_epoch}/{num_epochs}], Average Loss: {avg_loss}, Top-1 Total Correct: {top_1_correct}/{top_1_total} ({top_1_correct/top_1_total}), Top-3 Total Correct: {top_3_correct}/{top_3_total} ({top_3_correct/top_3_total})\n")

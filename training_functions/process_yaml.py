@@ -26,16 +26,6 @@ def process_yaml_for_training(yaml_path):
             return None
     
     hierarchical_dict = {k: merge_dicts(v) for k, v in data.items()}
-    
-    # handle none string values.    
-    #if isinstance(data["training_details"]["clip_value"], str):
-    #    assert data["training_details"]["clip_value"].lower() == "none", "clip_value must be a float|int or 'none'."
-    #    data["training_details"]["clip_value"] = None
-    
-
-    #if isinstance(data["dataloader_details"]["override_value"], str):
-    #    assert data["dataloader_details"]["override_value"].lower() == "none", "override_value must be a float|int or 'none'."
-    #    data["dataloader_details"]["override_value"] = None
 
     return hierarchical_dict
 
