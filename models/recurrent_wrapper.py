@@ -11,7 +11,7 @@ from models.perceiver_wrapper import CrossAttention, TransformerEncoder, Transfo
 class RecurrentWrapper(nn.Module):
     def __init__(
         self, perceiver_config: dict, model_name: str, dropout_rate: float = 0.0,
-        freeze_image_model: bool=True
+        freeze_image_model: bool=True, is_append_avg_emb: bool=False
     ):
         super(RecurrentWrapper, self).__init__()
         # Load the DINOv2 model
@@ -21,6 +21,8 @@ class RecurrentWrapper(nn.Module):
         self.dropout2 = nn.Dropout(dropout_rate)
 
         self.freeze_image_model = freeze_image_model
+
+        self.is_append_avg_emb = is_append_avg_emb
 
     def reset_latents(self):
         self.recurrence_model.reset_latents()
@@ -126,7 +128,9 @@ class RecurrentWrapper(nn.Module):
 
         self.reset_latents()
 
-        return prediction_list
+        if self.is_append_avg_emb:
+            return prediction_list[-1] + avg_image_emb
+        return prediction_list[-1]
         
 
 def test_perceiver_wrapper():

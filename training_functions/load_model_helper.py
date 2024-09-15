@@ -66,11 +66,12 @@ def dino_model_load(
     return dino
 
 def recurrent_model_perceiver_load(
-    perceiver_config, dino_model_name="facebook/dinov2-base", dropout_rate=0.1, freeze_image_model=True
+    perceiver_config, dino_model_name="facebook/dinov2-base", dropout_rate=0.1, freeze_image_model=True, is_append_avg_emb=False
 ):
     recurrent_model = RecurrentWrapper(
         perceiver_config=perceiver_config, model_name=dino_model_name, 
-        dropout_rate=dropout_rate, freeze_image_model=freeze_image_model
+        dropout_rate=dropout_rate, freeze_image_model=freeze_image_model,
+        is_append_avg_emb=is_append_avg_emb
     )
     return recurrent_model
 

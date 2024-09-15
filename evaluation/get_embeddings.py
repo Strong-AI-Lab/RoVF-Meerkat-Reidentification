@@ -32,12 +32,22 @@ from transformers import AutoModel
 
 from training_functions.load_model_helper import load_model_from_checkpoint
 
+import yaml
+
 def get_embeddings(
     model_ckpt, transformations, cooccurrences_filepath, clips_directory, 
     num_frames, mode, K, total_frames, zfill_num, is_override, override_value, 
     masks, apply_mask_percentage, device
 ):
     
+     # load ckpt here  
+    mdata = torch.load(model_ckpt)["metadata"] # this is a string of a dictionary, how to load it?
+    # Load the string into a dictionary using YAML (use safe_load for security)
+    mdata = yaml.safe_load(mdata)
+    
+    num_frames = mdata['dataloader_details']["num_frames"] if "num_frames" in mdata['dataloader_details'].keys() else num_frames
+    print(f"num_frames: {num_frames}")
+
     dataloader = dataloader_creation(
         transformations=transformations, cooccurrences_filepath=cooccurrences_filepath, 
         clips_directory=clips_directory, num_frames=num_frames, mode=mode,
@@ -45,7 +55,7 @@ def get_embeddings(
         override_value=override_value, masks=masks, apply_mask_percentage=apply_mask_percentage
     )
 
-    model = load_model_from_checkpoint(model_ckpt).to(device)
+    model = load_model_from_checkpoint(model_ckpt).to(device) # model_ckpt_is the path to the model checkpoint
     model.eval()
     
     if hasattr(model, 'set_eval_mode'):

@@ -249,7 +249,8 @@ def train(yaml_dict, device, ckpt_path):
             "perceiver_config": perc_config,
             "dino_model_name": yaml_dict["model_details"]["dino_model_name"],
             "dropout_rate": yaml_dict["model_details"]["dropout_rate"],
-            "freeze_image_model": yaml_dict["model_details"]["freeze_image_model"]
+            "freeze_image_model": yaml_dict["model_details"]["freeze_image_model"],
+            "is_append_avg_emb": yaml_dict["model_details"]["is_append_avg_emb"] if "is_append_avg_emb" in yaml_dict["model_details"].keys() else False
         }
         model = model_load_helper(**config)
         
