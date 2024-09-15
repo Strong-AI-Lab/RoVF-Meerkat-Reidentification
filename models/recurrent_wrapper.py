@@ -129,7 +129,7 @@ class RecurrentWrapper(nn.Module):
         self.reset_latents()
 
         if self.is_append_avg_emb:
-            return prediction_list[-1] + avg_image_emb
+            return prediction_list[-1] + self.get_average(frame_list)
         return prediction_list[-1]
         
 

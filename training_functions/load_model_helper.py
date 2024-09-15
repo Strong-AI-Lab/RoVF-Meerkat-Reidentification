@@ -132,12 +132,14 @@ def load_model_from_checkpoint(checkpoint_path: str):
         dino_model_name = convert_none_str_to_none(model_details.get('dino_model_name', 'facebook/dinov2-small')),
         dropout_rate = model_details.get('dropout_rate', 0.1)
         freeze_image_model = model_details.get('freeze_image_model', True)
+        is_append_avg_emb = model_details.get('is_append_avg_emb', False)
 
         model = recurrent_model_perceiver_load(
             perceiver_config=perceiver_config, 
             dino_model_name=dino_model_name, 
             dropout_rate=dropout_rate, 
-            freeze_image_model=freeze_image_model
+            freeze_image_model=freeze_image_model,
+            is_append_avg_emb=is_append_avg_emb
         )
     elif model_type == 'recurrent_decoder':
         print(f"model_details: {model_details}")
