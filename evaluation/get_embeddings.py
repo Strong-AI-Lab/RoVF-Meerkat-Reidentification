@@ -47,6 +47,9 @@ def get_embeddings(
 
     model = load_model_from_checkpoint(model_ckpt).to(device)
     model.eval()
+    
+    if hasattr(model, 'set_eval_mode'):
+        model.set_eval_mode(True)
 
     embeddings = {}
     for i, (path, data) in enumerate(dataloader):
@@ -62,91 +65,97 @@ def get_embeddings(
                     embeddings[path[j]] = output[j]
             else:
                 raise Exception(f"output size not recognized: {output.size()}")
+    print(f"len(embeddings): {len(embeddings)}")
     return embeddings
 
-if __name__ == "__main__":
-
-    #test_dataloader()
-
-    load_masks = True
+def main(args):
+    load_masks = args.load_masks
     masks = None
     if load_masks:
-        mask_path = "/home/kkno604/github/meerkat-repos/RoVF-meerkat-reidentification/Dataset/meerkat_h5files/masks/meerkat_masks.pkl"
+        mask_path = args.mask_path
         with open(mask_path, "rb") as f:
             masks = pickle.load(f)
 
     dataloader = dataloader_creation(
-        #num_frames=10, shuffle=True, mode_="Test", batch_size=30
-        transformations=None, cooccurrences_filepath="/home/kkno604/github/meerkat-repos/RoVF-meerkat-reidentification/Dataset/meerkat_h5files/Cooccurrences.json", 
-        clips_directory="/home/kkno604/github/meerkat-repos/RoVF-meerkat-reidentification/Dataset/meerkat_h5files/clips/Test", num_frames=10, mode="Test",
-        K=20, total_frames=20, zfill_num=4, is_override=False, override_value=None, masks=masks, apply_mask_percentage=1.0
+        transformations=None, 
+        cooccurrences_filepath=args.cooccurrences_filepath,
+        clips_directory=args.clips_directory, 
+        num_frames=args.num_frames, 
+        mode=args.mode,
+        K=args.K, 
+        total_frames=args.total_frames, 
+        zfill_num=args.zfill_num, 
+        is_override=args.is_override, 
+        override_value=args.override_value, 
+        masks=masks, 
+        apply_mask_percentage=args.apply_mask_percentage
     )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    '''
-    # load model. 
-    model = dino_model_load( # cat | average | max
-        dino_model_name="facebook/dinov2-base", output_dim=768, forward_strat="max", sequence_length=None, num_frames=10, dropout_rate=0.1
+    model = dino_model_load(
+        dino_model_name=args.dino_model_name, 
+        output_dim=args.output_dim, 
+        forward_strat=args.forward_strat, 
+        sequence_length=args.sequence_length, 
+        num_frames=args.num_frames, 
+        dropout_rate=args.dropout_rate
     )
-    # load checkpoint
-    checkpoint = torch.load("/home/kkno604/github/meerkat-repos/RoVF-meerkat-reidentification/results/hyperparameter_search/dino_base_margin_0p5/checkpoint_epoch_1.pt")
-    model.load_state_dict(checkpoint["model_state_dict"])
-    '''
 
-    '''
-    model = recurrent_model_load(
-        latent_dim=64, num_latents=64, output_dim=768, freeze_image_model=True
-    )
-    checkpoint = torch.load("/home/kkno604/experiments/meerkat_triplet_loss/recurrent_model_v2/recurrent_model.pth_epoch_3.pt")
-    model.load_state_dict(checkpoint)
-    '''
-    perceiver_config = {
-        "input_dim": 768,
-        "latent_dim": 768,
-        "num_heads": 12,
-        "num_latents": 64,
-        "num_transformer_layers": 2,
-        "dropout": 0.1,
-        "output_dim": 768
-    }
-    model = recurrent_model_perceiver_load(
-        perceiver_config=perceiver_config, dino_model_name="facebook/dinov2-base", dropout_rate=0.1, freeze_image_model=True
-    )
-    checkpoint = torch.load("/home/kkno604/github/meerkat-repos/RoVF-meerkat-reidentification/results/hyperparameter_search/rovf_margin_0p5/checkpoint_epoch_5.pt")
-    model.load_state_dict(checkpoint["model_state_dict"])
+    if args.checkpoint:
+        checkpoint = torch.load(args.checkpoint)
+        model.load_state_dict(checkpoint["model_state_dict"])
 
     model.to(device)
     model.eval()
 
-    #print(f"model: {model}")
     print(f"len(dataloader): {len(dataloader)}")
 
-    # get the embeddings
     embeddings = {}
     for i, (path, data) in enumerate(dataloader):
-        #print(f"data.size(): {data.size()}")
         with torch.no_grad():
-            #output = model(data.permute(0, 1, 4, 2, 3).to(device))
             output = model(data.to(device))
             if isinstance(output, tuple) or isinstance(output, list):
-                #print(f"type or list reached!")
                 output = output[-1]
             if len(output.size()) == 1:
-                #print(f"output.size() len of 1 reached!")
                 embeddings[path[0]] = output
-            elif len(output.size()) == 2: # batch processing
-                #print(f"output.size() len of 2 reached!")
-                #print(f"output.size(): {output.size()}")
+            elif len(output.size()) == 2:
                 assert len(path) == output.size(0)
                 for j in range(output.size(0)):
                     embeddings[path[j]] = output[j]
             else:
                 raise Exception(f"output size not recognized: {output.size()}")
-    #print(f"embeddings: {embeddings[list(embeddings.keys())[0]].size()}")
 
     print(f"len(embeddings): {len(embeddings)}")
 
-    # save the embeddings
-    with open("/home/kkno604/github/meerkat-repos/RoVF-meerkat-reidentification/results/hyperparameter_search/rovf_margin_0p5/checkpoint_epoch_5_embeddings.pkl", "wb") as f:
+    # Save the embeddings
+    with open(args.output_file, "wb") as f:
         pickle.dump(embeddings, f)
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Generate and save DINO embeddings")
+    
+    parser.add_argument("--load_masks", action="store_true", help="Whether to load masks")
+    parser.add_argument("--mask_path", type=str, default="/path/to/mask.pkl", help="Path to mask file")
+    parser.add_argument("--cooccurrences_filepath", type=str, required=True, help="Path to cooccurrences file")
+    parser.add_argument("--clips_directory", type=str, required=True, help="Directory containing clips")
+    parser.add_argument("--num_frames", type=int, default=10, help="Number of frames")
+    parser.add_argument("--mode", type=str, default="Test", help="Mode (Train/Test/Val)")
+    parser.add_argument("--K", type=int, default=20, help="K value")
+    parser.add_argument("--total_frames", type=int, default=20, help="Total frames")
+    parser.add_argument("--zfill_num", type=int, default=4, help="Zero fill number")
+    parser.add_argument("--is_override", action="store_true", help="Whether to override")
+    parser.add_argument("--override_value", type=float, default=None, help="Override value")
+    parser.add_argument("--apply_mask_percentage", type=float, default=1.0, help="Mask application percentage")
+    
+    parser.add_argument("--dino_model_name", type=str, default="facebook/dinov2-small", help="DINO model name")
+    parser.add_argument("--output_dim", type=int, default=768, help="Output dimension")
+    parser.add_argument("--forward_strat", type=str, default="cls", help="Forward strategy")
+    parser.add_argument("--sequence_length", type=int, default=None, help="Sequence length")
+    parser.add_argument("--dropout_rate", type=float, default=0.1, help="Dropout rate")
+    
+    parser.add_argument("--checkpoint", type=str, default=None, help="Path to model checkpoint")
+    parser.add_argument("--output_file", type=str, required=True, help="Output file path for embeddings")
+
+    args = parser.parse_args()
+    main(args)

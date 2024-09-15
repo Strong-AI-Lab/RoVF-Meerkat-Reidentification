@@ -10,7 +10,7 @@ sys.path.append("..")
 
 from models.dinov2_wrapper import DINOv2VideoWrapper
 from models.recurrent_wrapper import RecurrentWrapper
-from models.perceiver_wrapper import CrossAttention, TransformerEncoder, Perceiver
+from models.perceiver_wrapper import CrossAttention, TransformerEncoder, TransformerDecoder, Perceiver
 from models.recurrent_decoder import RecurrentDecoder
 
 import transformers
@@ -115,19 +115,23 @@ def load_model_from_checkpoint(checkpoint_path: str):
         # Extract recurrent model specific parameters
         #perceiver_config = model_details.get('perceiver_config', {})  # assuming this is nested somewhere
         perceiver_config = {
-            "input_dim": convert_none_str_to_none(model_details.get('input_dim', 768)),
-            "latent_dim": convert_none_str_to_none(model_details.get('latent_dim', 768)),
+            "raw_input_dim": convert_none_str_to_none(model_details.get('raw_input_dim', 384)),
+            "embedding_dim": convert_none_str_to_none(model_details.get('embedding_dim', 384)),
+            "latent_dim": convert_none_str_to_none(model_details.get('latent_dim', 384)),
             "num_heads": convert_none_str_to_none(model_details.get('num_heads', 12)),
-            "num_latents": convert_none_str_to_none(model_details.get('num_latents', 64)),
+            "num_latents": convert_none_str_to_none(model_details.get('num_latents', 512)),
             "num_transformer_layers": convert_none_str_to_none(model_details.get('num_tf_layers', 2)),
             "dropout": convert_none_str_to_none(model_details.get('dropout_rate', 0.1)),
-            "output_dim": convert_none_str_to_none(model_details.get('output_dim', 768))
+            "output_dim": convert_none_str_to_none(model_details.get('output_dim', 384)),
+            "use_raw_input": convert_none_str_to_none(model_details.get('use_raw_input', True)),
+            "use_embeddings": convert_none_str_to_none(model_details.get('use_embeddings', True)),
+            "flatten_channels": convert_none_str_to_none(model_details.get('flatten_channels', False)),
         }
-        dino_model_name = model_details.get('dino_model_name', 'facebook/dinov2-base')
+        
+        dino_model_name = convert_none_str_to_none(model_details.get('dino_model_name', 'facebook/dinov2-small')),
         dropout_rate = model_details.get('dropout_rate', 0.1)
         freeze_image_model = model_details.get('freeze_image_model', True)
-        #print(f"perceiver_config: {perceiver_config}")
-        # Call recurrent_model_perceiver_load with the extracted parameters
+
         model = recurrent_model_perceiver_load(
             perceiver_config=perceiver_config, 
             dino_model_name=dino_model_name, 

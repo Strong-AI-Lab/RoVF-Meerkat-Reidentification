@@ -1,11 +1,15 @@
 import pickle
 import numpy as np
 import pandas as pd
+import os
 
-def open_pickle(filepath):
-    """Open and load a pickle file."""
-    with open(filepath, 'rb') as f:
-        return pickle.load(f)
+def open_pickle(file_path):
+    # Open the file in binary read mode
+    with open(file_path, 'rb') as file:
+        # Load the object from the file
+        data = pickle.load(file)
+        data = {os.path.basename(key): value for key, value in data.items()}
+    return data
 
 def indices_of_smallest(distances, banned_idx):
     #Sort indices and distances, ignoring the query
@@ -36,6 +40,7 @@ def indices_of_smallest(distances, banned_idx):
 def compute_distances(embeddings):
     """Compute Euclidean distances between embeddings."""
     return np.sqrt(((embeddings[:, np.newaxis, :] - embeddings[np.newaxis, :, :]) ** 2).sum(axis=2))
+    
 
 def get_metrics(models, df):
     """
@@ -56,6 +61,8 @@ def get_metrics(models, df):
         for key in dict_:
             dict_[key] = dict_[key].to("cpu")
         data.append(dict_)
+
+    print(f"len(data[0]): {len(data[0].keys())}")
 
     # Initialize results array: [models x rows x metrics]
     results = np.zeros((len(models), len(df)*2, 3))
@@ -103,7 +110,7 @@ def get_metrics(models, df):
 def main():
     # List of model embedding paths
     models = [
-        "/home/kkno604/github/meerkat-repos/RoVF-meerkat-reidentification/results/hyperparameter_search/rovf_margin_0p5/checkpoint_epoch_5_embeddings.pkl"
+        "/home/kkno604/github/meerkat-repos/RoVF-meerkat-reidentification/results/pretrained_dino_models/v2-small/cls_embeddings_max.pkl"
     ]
     
     # Load dataframe of test examples

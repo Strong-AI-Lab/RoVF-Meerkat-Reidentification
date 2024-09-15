@@ -5,8 +5,8 @@ from transformers import AutoModel
 import sys
 sys.path.append("..")
 
-from models.perceiver_wrapper import CrossAttention, TransformerEncoder
-from models.perceiver_wrapper import Perceiver
+from models.perceiver_wrapper import CrossAttention, TransformerEncoder, TransformerDecoder, Perceiver
+
 
 class RecurrentWrapper(nn.Module):
     def __init__(
@@ -15,7 +15,7 @@ class RecurrentWrapper(nn.Module):
     ):
         super(RecurrentWrapper, self).__init__()
         # Load the DINOv2 model
-        self.image_model = AutoModel.from_pretrained(model_name)
+        self.image_model = AutoModel.from_pretrained("facebook/dinov2-small")#model_name)
         self.recurrence_model = Perceiver(**perceiver_config)
         self.dropout1 = nn.Dropout(dropout_rate)
         self.dropout2 = nn.Dropout(dropout_rate)
@@ -48,7 +48,7 @@ class RecurrentWrapper(nn.Module):
         '''
         # emb_list [(batch, slen, d_model), ...]  #length of the list is the number of frames.
         # slen is the number of patches.
-        
+        #print(f"emb_list[0].size(): {emb_list[0].size()}")
         stacked_tensors = torch.stack(emb_list, dim=1) # (b, #frames, sl, dm)
         stacked_tensors = self.dropout1(stacked_tensors)
         output_tensor = torch.mean(stacked_tensors, dim=-2) # average along sequence length dimension (each patch)
@@ -95,67 +95,63 @@ class RecurrentWrapper(nn.Module):
         pre_list = self.image_model_forward(video)
         return self.concat_embeddings(pre_list)
 
-    def recurrence_model_only(self, video_embeddings):
-        # Use the final hidden state to make a prediction
-        # The video_embeddings is a list of tensors, each tensor is the output of the image model
-        # Assuming the output layer is designed to make a prediction based on the hidden state
-
-        # The input to the model is batch_size, seq_len, input_dim
-
-        # video embeddings size [bsize, #frames, 122, 768]
-
-        # The output of the model is batch_size, seq_len, output_dim
-
-        prediction_list = []
-        for i in range(video_embeddings.size(1)):
-            pred = self.recurrence_model(video_embeddings[:,i,:], is_reset_latents=False)
-            prediction_list.append(pred)
-
-        self.reset_latents()
-        return prediction_list
-
-
     def forward(self, video):
-        
         batch_size = video.size(0)
 
-        # Process each frame sequentially
-
-        prediction_list = []
-
+        frame_list = []
         for i in range(video.size(1)):
-            
-            frame = video[:,i,:,:,:]
-            frame_output = self.image_model(frame).last_hidden_state#[:,:,:]  # Process each frame through DINOv2
+            frame = video[:,i,:,:,:]    
+            frame_output = self.image_model(frame).last_hidden_state
             if self.freeze_image_model:
                 frame_output = frame_output.detach()
-            # (batch_size, slen, d_model)
-            frame_output = self.dropout2(frame_output)  # Apply dropout and add sequence dimension
-            # Update hidden state (and cell state for LSTM)
-            #print(f"frame_output.size(): {frame_output.size()}")
-            pred = self.recurrence_model(frame_output, is_reset_latents=False)
+            frame_output = self.dropout2(frame_output)
+            frame_list.append(frame_output)
+
+        #avg_image_emb = self.get_average(frame_list)
+        stacked_tensors = torch.stack(frame_list, dim=1) # (b, #frames, sl, dm)
+        avg_image_emb = torch.mean(stacked_tensors, dim=-3)
+        # (b, sl, dm)
+        
+        prediction_list = []
+        for i in range(video.size(1)):
+            frame = video[:,i,:,:,:]
+            pred = self.recurrence_model(
+                raw_input=frame.permute(0, 2, 3, 1) if self.recurrence_model.use_raw_input else None, 
+                #embeddings=frame_list[i], video_emb=avg_image_emb if self.recurrence_model.use_video_emb else None,# if i == 0 else None,
+                embeddings=frame_list[i] if self.recurrence_model.use_embeddings else None, 
+                video_emb=avg_image_emb if i == 0 else None,
+                is_reset_latents=False
+            )
             prediction_list.append(pred)
 
         self.reset_latents()
 
         return prediction_list
+        
 
 def test_perceiver_wrapper():
     
+    #raw_input_dim, embedding_dim, latent_dim, num_heads, num_latents, 
+        #num_transformer_layers, dropout, output_dim, use_raw_input=True, use_embeddings=True,
+        #flatten_channels=False
     perceiver_config = {
-        "input_dim": 768,
-        "latent_dim": 64,
+        "raw_input_dim": 3,
+        "embedding_dim": 384,
+        "latent_dim": 384,
         "num_heads": 8,
         "num_latents": 64,
-        "num_transformer_layers": 4,
+        "num_transformer_layers": 2,
         "dropout": 0.1,
-        "output_dim": 24
+        "output_dim": 768,
+        "use_raw_input": True,
+        "use_embeddings": True,
+        "flatten_channels": False
     }
-    dino_model_name = "facebook/dinov2-base"
+    dino_model_name = "facebook/dinov2-small"
     dropout_rate = 0.1
     freeze_image_model = True
 
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"device: {device}")
 
     model = RecurrentWrapper(perceiver_config, dino_model_name, dropout_rate, freeze_image_model).to(device)
@@ -184,17 +180,17 @@ def test_perceiver_wrapper():
 
     image_model_test = model.image_model_forward_and_average(video)
     print(f"(avg) image_model_test.size(): {image_model_test.size()}")
-    print(f"(avg) image_model_test[:20]: {image_model_test[:20]}")
+    #print(f"(avg) image_model_test[:20]: {image_model_test[:20]}")
     print()
 
     image_model_test = model.image_model_forward_and_max(video)
     print(f"(max) image_model_test.size(): {image_model_test.size()}")
-    print(f"(max) image_model_test[:20]: {image_model_test[:20]}")
+    #print(f"(max) image_model_test[:20]: {image_model_test[:20]}")
     print()
 
     image_model_test = model.image_model_forward_and_concat(video)
     print(f"(cat) image_model_test.size(): {image_model_test.size()}")
-    print(f"(cat) image_model_test[:20]: {image_model_test[:20]}")
+    #print(f"(cat) image_model_test[:20]: {image_model_test[:20]}")
 
 if __name__ == "__main__":
     

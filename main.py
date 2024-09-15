@@ -3,6 +3,7 @@ from training_functions.process_yaml import process_yaml_for_training
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 #torch.autograd.set_detect_anomaly(True)
 
@@ -14,35 +15,13 @@ from transformers import AutoModel
 import time
 import pickle
 import os
+import yaml
+import random
 
 import torch.multiprocessing as mp
 mp.set_sharing_strategy('file_system')
 
 from training_functions.load_model_helper import load_model_from_checkpoint
-
-def import_recurrence_model():
-    from models.perceiver_wrapper import CrossAttention, TransformerEncoder, Perceiver
-    from models.recurrent_wrapper import RecurrentWrapper
-    from training_functions.load_model_helper import recurrent_model_perceiver_load as model_load_helper
-    from training_functions.dataloader_helper import dataloader_creation as get_dataloader
-    from get_anchors.recurrence_model import get_anchor_pos_and_neg_recurrence as anchor_fn
-
-def import_dino_model():
-    from models.dinov2_wrapper import DINOv2Wrapper
-    from training_functions.load_model_helper import dino_model_load as model_load_helper
-    from training_functions.dataloader_helper import dataloader_creation as get_dataloader
-    from get_anchors.image_model import get_anchor_pos_and_neg_dino as anchor_fn
-
-'''
-def check_for_nan_hook(module, input, output):
-    if isinstance(output, torch.Tensor) and torch.isnan(output).any():
-        print(f"NaN detected in layer: {module}")
-        print(f"Output tensor with NaN values: {output}")
-
-def register_nan_hooks(model):
-    for layer in model.modules():
-        layer.register_forward_hook(check_for_nan_hook)
-'''
 
 def get_emb(args):
     from evaluation.get_embeddings import get_embeddings
@@ -50,9 +29,11 @@ def get_emb(args):
     from training_functions.dataloader_helper import dataloader_creation as get_dataloader
 
     from models.dinov2_wrapper import DINOv2VideoWrapper
-    from models.perceiver_wrapper import CrossAttention, TransformerEncoder, Perceiver
+    from models.perceiver_wrapper import CrossAttention, TransformerEncoder, TransformerDecoder, Perceiver
     from models.recurrent_wrapper import RecurrentWrapper
+    from models.recurrent_decoder import RecurrentDecoder
     from training_functions.load_model_helper import dino_model_load, recurrent_model_perceiver_load, load_model_from_checkpoint
+    
     masks = None
     if args.mask_path != "" and args.mask_path is not None:
         with open(args.mask_path, "r") as f:
@@ -60,9 +41,9 @@ def get_emb(args):
 
     embeddings = get_embeddings(
         model_ckpt=args.ckpt_path, transformations=None, cooccurrences_filepath=args.cooccurrences_filepath, 
-        clips_directory=args.clips_directory, num_frames=args.num_frames, mode=args.dlmode, K=args.K, 
-        total_frames=args.total_frames, zfill_num=args.zfill_num, is_override=args.is_override, 
-        override_value=args.override_value, masks=masks, apply_mask_percentage=args.apply_mask_percentage, 
+        clips_directory=args.clips_directory, num_frames=args.num_frames, mode="Test", K=args.K, 
+        total_frames=args.total_frames, zfill_num=args.zfill_num, is_override=False, 
+        override_value=None, masks=masks, apply_mask_percentage=args.apply_mask_percentage, 
         device=args.device
     )
 
@@ -114,6 +95,7 @@ def main():
     parser.add_argument("-df", "--dataframe_path", default="Dataset/meerkat_h5files/Precomputed_test_examples_meerkat.csv", type=str, help="The path to the dataframe to load.")
     parser.add_argument("-lnev", "--ln_epsilon_value", default=None, type=float, help="The value to set the LayerNorm epsilon")
     parser.add_argument("-nan", "--detect_nan", default=False, type=bool, help="Detect NaN values in the model.")
+    #parser.add_argument("-adino", "--anchor_dino_model", default=None, type=str, help="The DINO model to use for the anchor function. Default: None.")
 
     # Parse the arguments
     args = parser.parse_args()
@@ -124,6 +106,8 @@ def main():
     #current_epoch = args.current_epoch
     ckpt_path = args.ckpt_path
     device = args.device
+
+    #print(f"args.dlmode: {args.dlmode}")
     
     #mask_path = args.mask_path
     #apply_mask_percentage = args.apply_mask_percentage
@@ -139,8 +123,14 @@ def main():
 
     if mode == "train":
         # Process the yaml file
-        data = process_yaml_for_training(yaml_path)
-        train(data, device, ckpt_path, args.ln_epsilon_value, args.detect_nan)
+        #data = process_yaml_for_training(yaml_path)
+        data = None
+        with open(yaml_path, 'r') as stream:
+            try:
+                data = yaml.safe_load(stream)
+            except yaml.YAMLError as exc:
+                print(exc)
+        train(data, device, ckpt_path)
     elif mode == "get_embeddings":
         assert ckpt_path != "" and ckpt_path is not None, "Need a checkpoint path to load the model."
         assert args.clips_directory != "" and args.clips_directory is not None, "Need a clips directory to load the clips."
@@ -168,6 +158,7 @@ def main():
         assert args.cooccurrences_filepath != "" and args.cooccurrences_filepath is not None, "Need a cooccurrences file to load the cooccurrences."
         
         get_emb(args)
+
         if args.embedding_path == "" or args.embedding_path is None:
             print(f"Embedding path not provided. Will load embeddings from {ckpt_path[:-3] + '_embeddings.pkl'}")
             args.embedding_path = ckpt_path[:-3] + "_embeddings.pkl"
@@ -179,7 +170,7 @@ def main():
     else:
         raise ValueError(f"Invalid mode: {mode}.")
 
-def train(yaml_dict, device, ckpt_path, ln_epsilon_value, detect_nan=False):
+def train(yaml_dict, device, ckpt_path):
 
     from dataloaders.ReID import AnimalClipDataset
     from augmentations.simclr_augmentations import get_meerkat_transforms
@@ -200,12 +191,13 @@ def train(yaml_dict, device, ckpt_path, ln_epsilon_value, detect_nan=False):
     from training_functions.load_model_helper import set_layernorm_eps_recursive, set_dropout_p_recursive
 
     model = None
+    anchor_model = None
     if yaml_dict["model_details"]["model_type"] == "dino":
         #import_dino_model()
         from models.dinov2_wrapper import DINOv2VideoWrapper
         from training_functions.load_model_helper import dino_model_load as model_load_helper
         from training_functions.dataloader_helper import dataloader_creation as get_dataloader
-        from get_anchors.image_model import get_anchor_pos_and_neg_dino as anchor_fn
+        from get_anchors.anchor_fn import anchor_fn_hard, anchor_fn_hard_rand_anchor, anchor_fn_semi_hard
         config = {
             "dino_model_name": yaml_dict["model_details"]["dino_model_name"],
             "output_dim": yaml_dict["model_details"]["output_dim"],
@@ -216,22 +208,43 @@ def train(yaml_dict, device, ckpt_path, ln_epsilon_value, detect_nan=False):
         }
         model = model_load_helper(**config)
 
+        if yaml_dict["training_details"]["anchor_dino_model"] is not None:
+            config2 = {
+                "dino_model_name": yaml_dict["training_details"]["anchor_dino_model"],
+                "output_dim": None,
+                "forward_strat": "average",
+                "sequence_length": None,
+                "num_frames": yaml_dict["dataloader_details"]["num_frames"],
+                "dropout_rate": 0.0
+            }
+            anchor_model = model_load_helper(**config2)
+
+        set_dropout_p_recursive(model, yaml_dict["model_details"]["dropout_rate"])
+            
     elif yaml_dict["model_details"]["model_type"] == "recurrent" or yaml_dict["model_details"]["model_type"] == "recurrent_perceiver":
         #import_recurrence_model()
         from models.perceiver_wrapper import CrossAttention, TransformerEncoder, Perceiver
         from models.recurrent_wrapper import RecurrentWrapper
+        from models.dinov2_wrapper import DINOv2VideoWrapper
         from training_functions.load_model_helper import recurrent_model_perceiver_load as model_load_helper
+        from training_functions.load_model_helper import dino_model_load as anchor_model_load_helper
         from training_functions.dataloader_helper import dataloader_creation as get_dataloader
-        from get_anchors.recurrence_model import get_anchor_pos_and_neg_recurrence as anchor_fn
+        from get_anchors.anchor_fn import anchor_fn_hard, anchor_fn_hard_rand_anchor, anchor_fn_semi_hard
         perc_config = {
-            "input_dim": yaml_dict["model_details"]["input_dim"],
+            "raw_input_dim": yaml_dict["model_details"]["raw_input_dim"],
+            "embedding_dim": yaml_dict["model_details"]["embedding_dim"],
             "latent_dim": yaml_dict["model_details"]["latent_dim"],
             "num_heads": yaml_dict["model_details"]["num_heads"],
             "num_latents": yaml_dict["model_details"]["num_latents"],
             "num_transformer_layers": yaml_dict["model_details"]["num_tf_layers"],
             "dropout": yaml_dict["model_details"]["dropout_rate"],
-            "output_dim": yaml_dict["model_details"]["output_dim"]
+            "output_dim": yaml_dict["model_details"]["output_dim"],
+            "use_raw_input": yaml_dict["model_details"]["use_raw_input"],
+            "use_embeddings": yaml_dict["model_details"]["use_embeddings"],
+            "flatten_channels": yaml_dict["model_details"]["flatten_channels"]
         }
+        assert isinstance(yaml_dict["model_details"]["use_raw_input"], bool) and isinstance(yaml_dict["model_details"]["use_embeddings"], bool) \
+            and isinstance(yaml_dict["model_details"]["flatten_channels"], bool), "use_raw_input, use_embeddings, and flatten_channels must be boolean."
         config = {
             "perceiver_config": perc_config,
             "dino_model_name": yaml_dict["model_details"]["dino_model_name"],
@@ -239,10 +252,24 @@ def train(yaml_dict, device, ckpt_path, ln_epsilon_value, detect_nan=False):
             "freeze_image_model": yaml_dict["model_details"]["freeze_image_model"]
         }
         model = model_load_helper(**config)
+        
+        if yaml_dict["training_details"]["anchor_dino_model"] is not None:
+            config2 = {
+                "dino_model_name": yaml_dict["training_details"]["anchor_dino_model"],
+                "output_dim": None,
+                "forward_strat": "average",
+                "sequence_length": None,
+                "num_frames": yaml_dict["dataloader_details"]["num_frames"],
+                "dropout_rate": 0.0
+            }
+            anchor_model = anchor_model_load_helper(**config2)
+
     elif yaml_dict["model_details"]["model_type"] == "recurrent_decoder":
         from models.recurrent_decoder import RecurrentDecoder
+        from models.dinov2_wrapper import DINOv2VideoWrapper
         from training_functions.dataloader_helper import dataloader_creation as get_dataloader
-        from get_anchors.recurrence_decoder_model import get_anchor_pos_and_neg_recurrence as anchor_fn
+        from training_functions.load_model_helper import dino_model_load as anchor_model_load_helper
+        from get_anchors.anchor_fn import anchor_fn_hard, anchor_fn_hard_rand_anchor, anchor_fn_semi_hard
         model = RecurrentDecoder(
             v_size=yaml_dict["model_details"]["v_size"],
             d_model=yaml_dict["model_details"]["d_model"],
@@ -255,17 +282,22 @@ def train(yaml_dict, device, ckpt_path, ln_epsilon_value, detect_nan=False):
             image_model_name=yaml_dict["model_details"]["image_model_name"],
             freeze_image_model=yaml_dict["model_details"]["freeze_image_model"]
         )
+
+        if yaml_dict["training_details"]["anchor_dino_model"] is not None:
+            config2 = {
+                "dino_model_name": yaml_dict["training_details"]["anchor_dino_model"],
+                "output_dim": None,
+                "forward_strat": "average",
+                "sequence_length": None,
+                "num_frames": yaml_dict["dataloader_details"]["num_frames"],
+                "dropout_rate": 0.0
+            }
+            anchor_model = anchor_model_load_helper(**config2)
+        
+        set_dropout_p_recursive(model, yaml_dict["model_details"]["dropout_rate"])
+
     else:
         raise ValueError("Invalid model type.")
-
-    #print(f"detect_nan: {detect_nan}")
-    #if detect_nan:
-    #    print("Detecting NaN values in model.")
-    #    register_nan_hooks(model) 
-
-    if ln_epsilon_value is not None:
-        set_layernorm_eps_recursive(model, ln_epsilon_value)
-    set_dropout_p_recursive(model, yaml_dict["model_details"]["dropout_rate"])
 
     start_epoch = 0
     checkpoint = None
@@ -275,6 +307,9 @@ def train(yaml_dict, device, ckpt_path, ln_epsilon_value, detect_nan=False):
         start_epoch = checkpoint["epoch"] # assume epoch saved is +1 and train function starts at zero.
 
     model.to(device)
+    if anchor_model is not None:
+        anchor_model.to(device)
+
 
     criterion = None
     if yaml_dict["training_details"]["criterion_details"]["name"] == "triplet_margin_loss":
@@ -297,14 +332,6 @@ def train(yaml_dict, device, ckpt_path, ln_epsilon_value, detect_nan=False):
     batch_size = yaml_dict["training_details"]["batch_size"]
     log_path = yaml_dict["training_details"]["log_directory"]
     clip_value = yaml_dict["training_details"]["clip_value"]
-
-    # already imported above
-    #if yaml_dict["training_details"]["anchor_function_details"]["type"] == "dino":
-    #    from get_anchors.recurrence_model import get_anchor_pos_and_neg_dino as anchor_fn
-    #elif yaml_dict["training_details"]["anchor_function_details"]["type"] == "recurrent":
-    #    from get_anchors.recurrence_model import get_anchor_pos_and_neg_recurrence as anchor_fn
-    #else:
-    #    raise ValueError("Invalid anchor function type.")
 
     optimizer = None
     if yaml_dict["training_details"]["optimizer_details"]["name"] == "adamw":
@@ -338,8 +365,8 @@ def train(yaml_dict, device, ckpt_path, ln_epsilon_value, detect_nan=False):
 
     masks = None
     if yaml_dict["dataloader_details"]["mask_path"] != "" and isinstance(yaml_dict["dataloader_details"]["mask_path"], str):
-        with open(yaml_dict["dataloader_details"]["mask_path"], "r") as f:
-            masks = pickle.load(f)
+        with open(yaml_dict["dataloader_details"]["mask_path"], "rb") as f:
+            masks = pickle.load(f, encoding='latin1')
     apply_mask_percentage = yaml_dict["dataloader_details"]["apply_mask_percentage"]
 
     trainloader = get_dataloader(
@@ -361,11 +388,11 @@ def train(yaml_dict, device, ckpt_path, ln_epsilon_value, detect_nan=False):
         clips_directory=yaml_dict["dataloader_details"]["clips_directory"]+"Val/",
         num_frames=yaml_dict["dataloader_details"]["num_frames"],
         mode=yaml_dict["dataloader_details"]["mode"],
-        K=yaml_dict["dataloader_details"]["K"],
+        K=5, #yaml_dict["dataloader_details"]["K"],
         total_frames=yaml_dict["dataloader_details"]["total_frames"],
         zfill_num=yaml_dict["dataloader_details"]["zfill_num"],
         is_override=False, override_value=None,
-        masks=None, apply_mask_percentage=1.0, device=device
+        masks=masks, apply_mask_percentage=apply_mask_percentage, device=device
     )
 
     if scheduler is not None:
@@ -374,19 +401,21 @@ def train(yaml_dict, device, ckpt_path, ln_epsilon_value, detect_nan=False):
 
     metadata = str(yaml_dict)
 
+    if yaml_dict["training_details"]["anchor_function_details"]["type"] == "hard":
+        anchor_fn = anchor_fn_hard
+    elif yaml_dict["training_details"]["anchor_function_details"]["type"] == "semi_hard":
+        anchor_fn = anchor_fn_semi_hard
+    elif yaml_dict["training_details"]["anchor_function_details"]["type"] == "hard_rand_anchor":
+        anchor_fn = anchor_fn_hard_rand_anchor
+    else:
+        raise ValueError(f'Invalid anchor function {yaml_dict["training_details"]["anchor_function_details"]["type"]}.')
+
     train(
-        model, model_type, epochs, trainloader, valloader, anchor_fn, similarity_measure, optimizer, scheduler,
+        model, anchor_model, epochs, trainloader, valloader, anchor_fn, similarity_measure, optimizer, scheduler,
         criterion, device, log_path, metadata, batch_size, clip_value, start_epoch,
-        accumulation_steps=yaml_dict["training_details"]["accumulation_steps"] if "accumulation_steps" in yaml_dict["training_details"] else 1
+        accumulation_steps=yaml_dict["training_details"]["accumulation_steps"] if "accumulation_steps" in yaml_dict["training_details"] else 1,
+        margin=yaml_dict["training_details"]["criterion_details"]["margin"],
     )
-
-
-# TODO: this may not be needed.
-def hyperparameter_search():
-    pass
-
-def test():
-    pass
 
 if __name__ == "__main__":
     main()

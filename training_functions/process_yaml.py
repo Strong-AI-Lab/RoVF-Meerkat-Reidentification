@@ -24,6 +24,7 @@ def process_yaml_for_training(yaml_path):
         except yaml.YAMLError as exc:
             print(exc)
             return None
+    print(f"data: {data}")
     
     hierarchical_dict = {k: merge_dicts(v) for k, v in data.items()}
 

@@ -98,8 +98,8 @@ class AnimalClipDataset(Dataset):
                     for key in h5_file.keys():
                         #Sample frames when loading the dataset to save memory
                         video = np.asarray(h5_file[key])[interval,...]
-                        video = torch.from_numpy(video.astype(np.float32).transpose((0, 3, 1, 2))).contiguous()/255.0
-                        video.to(device)
+                        #video = torch.from_numpy(video.astype(np.float32).transpose((0, 3, 1, 2))).contiguous()/255.0
+                        #video.to(device)
                         self.clips[key] = video
                         self.clip_metadata[str(int(key.split("_")[0])).zfill(self.zfill_num)] += [key]
                         if self.masks:
@@ -107,8 +107,8 @@ class AnimalClipDataset(Dataset):
                 else:
                     for key in h5_file.keys():
                         video = np.asarray(h5_file[key])[0,:,:,:][np.newaxis, :, :, :]
-                        video = torch.from_numpy(video.astype(np.float32).transpose((0, 3, 1, 2))).contiguous()/255.0
-                        video.to(device)
+                        #video = torch.from_numpy(video.astype(np.float32).transpose((0, 3, 1, 2))).contiguous()/255.0
+                        #video.to(device)
                         self.clips[key] = video
                         self.clip_metadata[str(int(key.split("_")[0])).zfill(self.zfill_num)] += [key]
                         if self.masks:
@@ -126,7 +126,7 @@ class AnimalClipDataset(Dataset):
     def load_clip(self, clip_id):
         # Implement this method to load a clip given its ID.
         video = self.clips[clip_id]
-        #video = torch.from_numpy(video.astype(np.float32).transpose((0, 3, 1, 2))).contiguous()/255.0
+        video = torch.from_numpy(video.astype(np.float32).transpose((0, 3, 1, 2))).contiguous()/255.0
 
         do_mask = random.random() <= self.apply_mask_percentage
 

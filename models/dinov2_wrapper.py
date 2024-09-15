@@ -13,7 +13,7 @@ class DINOv2VideoWrapper(nn.Module):
 
         self.forward_strat = forward_strat
         # raise value error if forward_strat is not one of the three options.
-        if self.forward_strat not in ["cat", "average", "avg", "mean", "max", "maximum"]:
+        if self.forward_strat not in ["cat", "average", "avg", "mean", "max", "maximum", "cls"]:
             raise ValueError(f"Invalid forward strategy: {self.forward_strat}. Please use one of 'cat', 'average', or 'max'.")
         self.sequence_length = sequence_length
         self.num_frames = num_frames
@@ -30,12 +30,13 @@ class DINOv2VideoWrapper(nn.Module):
         self.dino_output_dim = self.dino.config.hidden_size
 
         if output_dim is not None:
-            # Add a linear layer on top of DINOv2
+            print(f"Assuming cls strategy for linear layer at the end.")
             self.linear = nn.Linear(
-                self.dino_output_dim*self.sequence_length if self.sequence_length is not None else self.dino_output_dim, output_dim
+                self.dino_output_dim, output_dim
             )
         else:
             self.linear = None
+        
 
         self.dropout1 = nn.Dropout(dropout_rate)
         self.dropout2 = nn.Dropout(dropout_rate)
@@ -61,26 +62,13 @@ class DINOv2VideoWrapper(nn.Module):
         cls_outputs = [self.dino(video[:,i,:,:,:]).last_hidden_state[:, :, :] for i in range(video.size(1))]
         num_frames = len(cls_outputs)
 
-        #batch_size, num_frames, channels, height, width = video.size()
-        # Reshape the video tensor to combine the batch and frame dimensions (so can run through everything at once; efficiency improvement)
-        # this makes it memory inefficient. 
-        #video = video.view(-1, channels, height, width)  # Shape: (batch_size * num_frames, channels, height, width)
-        # Pass the entire batch through the model in one go
-        #outputs = self.dino(video).last_hidden_state  # Assuming self.dino can handle batch processing
-        # Reshape the output to separate the batch and frame dimensions again
-        #cls_outputs = outputs.view(batch_size, num_frames, -1, outputs.size(-1))
-        batch_size = video.size(0)
+        batch_size = video.size
 
         assert len(cls_outputs[0].size()) == 3, f"The output of the DINOv2 model is not of the expected shape. Expected 3 dimensions, got {len(cls_outputs[0].size())}"
         
         if self.forward_strat == "cat": 
             output_tensor = torch.cat(cls_outputs, dim=1) # (b, sl * #frames, dm)
-            #output_tensor = cls_outputs.view(batch_size, -1, outputs.size(-1))
-            
-            # flatten.
-
-            # note: sequence length should already count the number of frames.
-            output_tensor = output_tensor.view(batch_size, -1) #self.sequence_length*self.dino_output_dim)
+            output_tensor = output_tensor.view(batch_size, -1)
             # b, sl*#frames*dm
             output_tensor = self.dropout1(output_tensor) 
         elif self.forward_strat == "average" or self.forward_strat == "avg" or self.forward_strat == "mean":
@@ -92,11 +80,16 @@ class DINOv2VideoWrapper(nn.Module):
             # (b, dm)
         elif self.forward_strat == "max" or self.forward_strat == "maximum":
             stacked_tensors = torch.stack(cls_outputs, dim=1) # (b, #frames, sl, dm)
-            #stacked_tensors = self.dropout1(cls_outputs)
             output_tensor = torch.max(stacked_tensors, dim=-2).values # max along sequence length dimension (each patch)
             # (b, #frames, dm)
             output_tensor = torch.max(output_tensor, dim=-2).values # max along frame dimension
             # (b, dm) 
+        elif self.forward_strat == "cls":
+            output_tensor = torch.stack([cls_[:,0,:] for cls_ in cls_outputs], dim=1) # (b, #frames, dm)])
+            # average now.
+            output_tensor = torch.mean(output_tensor, dim=-2)
+            
+
         else: # Error    
             raise ValueError(f"Invalid forward strategy: {self.forward_strat}. Please use one of 'cat', 'average', or 'max'.")
         
@@ -229,5 +222,6 @@ def forward_max_test():
 if __name__ == "__main__":
     
     #forward_cat_test()
-    forward_avg_test()
+    #forward_avg_test()
     #forward_max_test()
+    pass

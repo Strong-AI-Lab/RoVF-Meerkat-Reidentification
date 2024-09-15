@@ -29,18 +29,15 @@ def dataloader_creation(
     apply_mask_percentage=1.0, device="cpu"
 ):
 
-        # directory, animal_cooccurrences,
-        #transformations=None, K=20, num_frames=10, 
-        #total_frames=20, mode="positive_negative",  
-        #zfill_num=4, is_override=False, override_value=None, 
-        #masks=None
-
     batch_size = 1 # This is fixed. 
     shuffle = False # dataset is random by default, so this doesn't matter; set to False.
 
     assert mode in ["Train", "Test", "video_only", "positive_negative"], f"Invalid mode: {mode}!"
+    mode_ = None
     if mode == "Test" or mode == "video_only":
         mode_ = "video_only"
+        is_override = False #
+        override_value = None #
     else:
         mode_ = "positive_negative"
 
@@ -48,6 +45,7 @@ def dataloader_creation(
         cooccurrences = json.load(file)
 
     if transformations is not None:
+        #print(f"transformations: {transformations}")
         meerkat_transforms = get_meerkat_transforms(transformations)
     else:
         meerkat_transforms = None
@@ -59,7 +57,7 @@ def dataloader_creation(
         is_override=is_override, override_value=override_value, masks=masks,
         apply_mask_percentage=apply_mask_percentage, device=device
     )
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=24)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=4)
     # note: a non-1 batch size will result in an error. 
 
     return dataloader

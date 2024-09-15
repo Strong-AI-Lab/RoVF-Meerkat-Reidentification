@@ -1,9 +1,11 @@
 import torch
 import torch.nn as nn
+import random
 
 def val(
-    model, model_type, valloader, device, anchor_fn, similarity_measure, 
-    criterion, log_path, batch_size, current_epoch, num_epochs, do_metrics=False
+    model, valloader, anchor_fn_semi_hard, device, similarity_measure, criterion, 
+    log_path, batch_size, current_epoch, num_epochs, do_metrics=False, 
+    num_negatives=5
 ):
 
     assert similarity_measure is not None, "similarity_measure must be provided."
@@ -36,21 +38,21 @@ def val(
     top_3_total = 0
 
     for c, (positive_list, negative_list) in enumerate(valloader):
+
+        assert len(positive_list) >= 2, "Positive list must have at least 2 items."
         
-        try:
-            with torch.no_grad():
-                anchor, positive, negative, negative_list = anchor_fn(
-                    model, positive_list, negative_list, device, similarity_measure=similarity_measure, is_ret_emb=True
-                )
-        except Exception as e:
-            print(f"Error in anchor_fn for example {c+1}. Skipping example.")
-            print(e)
-            continue
-        anchor, positive, negative = anchor.to(device), positive.to(device), negative.to(device)
-        negative_list = [neg.to(device) for neg in negative_list]
+        with torch.no_grad():
+            anchor_emb, positive_emb, negative_emb, _ = anchor_fn_semi_hard(
+                model, positive_list, negative_list, device, similarity_measure=similarity_measure, is_ret_emb=True
+            )
 
 
-        loss = criterion(anchor, positive, negative)
+        if len(anchor_emb.size()) == 1:
+            anchor_emb = anchor_emb.unsqueeze(0)
+            positive_emb = positive_emb.unsqueeze(0)
+            negative_emb = negative_emb.unsqueeze(0)
+
+        loss = criterion(anchor_emb, positive_emb, negative_emb) # negative[0] is the first negative example, calculate the loss on this
         cumulative_loss += loss.item()
         counter += 1
 
@@ -58,9 +60,9 @@ def val(
             continue
 
         # get top-1 and top-3 accuracy.
-        query = anchor # (d_model)
-        gallery = torch.stack([positive]+negative_list, dim=0)
-        distances = similarity_measure(query.unsqueeze(0), gallery) # .size() = (1 + len(negative_list))
+        query = anchor_emb # (d_model)
+        gallery = torch.cat([positive_emb,negative_emb], dim=0)
+        distances = similarity_measure(query, gallery) # .size() = (1 + len(negative_list))
         assert len(distances.size()) == 1, "distances must be a 1D tensor."
         a, b, c, d, = get_top1_and_top3(distances)
         top_1_correct += a
@@ -69,9 +71,9 @@ def val(
         top_3_total += d
 
         # switch the query to the positive (non-anchor) example.
-        query = positive # (d_model)
-        gallery = torch.stack([anchor]+negative_list, dim=0) # b, d_model
-        distances = similarity_measure(query.unsqueeze(0), gallery) # .size() = (1 + len(negative_list))
+        query = positive_emb # (d_model)
+        gallery = torch.cat([anchor_emb,negative_emb], dim=0) # b, d_model
+        distances = similarity_measure(query, gallery) # .size() = (1 + len(negative_list))
         assert len(distances.size()) == 1, "distances must be a 1D tensor."
         a, b, c, d, = get_top1_and_top3(distances)
         top_1_correct += a
@@ -79,7 +81,6 @@ def val(
         top_3_correct += c
         top_3_total += d
 
-    
     avg_loss = cumulative_loss / counter
     if not do_metrics:
         print(f"Epoch [{current_epoch}/{num_epochs}], Average Val Loss: {avg_loss}")
