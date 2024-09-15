@@ -36,8 +36,8 @@ def get_emb(args):
     
     masks = None
     if args.mask_path != "" and args.mask_path is not None:
-        with open(args.mask_path, "r") as f:
-            masks = pickle.load(f)
+        with open(args.mask_path, "rb") as f:
+            masks = pickle.load(f, encoding='latin1')
 
     embeddings = get_embeddings(
         model_ckpt=args.ckpt_path, transformations=None, cooccurrences_filepath=args.cooccurrences_filepath, 
@@ -48,7 +48,12 @@ def get_emb(args):
     )
 
     # remove .pt from ckpt_path and add _embeddings.pkl
-    with open (args.ckpt_path[:-3] + "_embeddings.pkl", "wb") as f:
+    embeddings_filename = args.ckpt_path[:-3] + "_embeddings"
+    if masks is not None:
+        embeddings_filename += "_mask"
+    embeddings_filename += ".pkl"
+    
+    with open(embeddings_filename, "wb") as f:
         pickle.dump(embeddings, f)
 
 def get_metrics(args):
@@ -67,7 +72,7 @@ def get_metrics(args):
         print(f"Model {i}: Top-1 Accuracy: {top1}, Top-3 Accuracy: {top3}, Unique in Top-3: {unique_top3}")
 
     # save results in same directory as embeddings (assume .pkl file extention)
-    with open(args.embedding_path[:-4] + "_metrics.txt", "w") as f:
+    with open(args.embedding_path[:-4] + ("_mask" if args.mask_path is not None else "") + "_metrics.txt", "w") as f:
         f.write(f"Model {i}: Top-1 Accuracy: {top1}, Top-3 Accuracy: {top3}, Unique in Top-3: {unique_top3}")
 
 def main():
@@ -145,6 +150,9 @@ def main():
             assert ckpt_path != "" and ckpt_path is not None, "Need a checkpoint path to load the model."
             print(f"Embedding path not provided. Will load embeddings from {ckpt_path[:-3] + '_embeddings.pkl'}")
             args.embedding_path = ckpt_path[:-3] + "_embeddings.pkl"
+            # if mask path is provided or not add this to the filename
+            if args.mask_path is not None:
+                args.embedding_path = args.embedding_path[:-4] + "_mask.pkl"
             if not os.path.exists(args.embedding_path):
                 raise FileNotFoundError(f"Embeddings file {args.embedding_path} does not exist.")
         assert args.dataframe_path != "" and args.dataframe_path is not None, "Need a path to the dataframe."
@@ -162,6 +170,8 @@ def main():
         if args.embedding_path == "" or args.embedding_path is None:
             print(f"Embedding path not provided. Will load embeddings from {ckpt_path[:-3] + '_embeddings.pkl'}")
             args.embedding_path = ckpt_path[:-3] + "_embeddings.pkl"
+            if args.mask_path is not None:
+                args.embedding_path = args.embedding_path[:-4] + "_mask.pkl"
             if not os.path.exists(args.embedding_path):
                 raise FileNotFoundError(f"Embeddings file {args.embedding_path} does not exist.")
 
