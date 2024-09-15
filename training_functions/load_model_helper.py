@@ -83,6 +83,12 @@ def load_model_from_checkpoint(checkpoint_path: str):
                 return None
         return value
 
+    def get_with_print(dictionary, key, default=None):
+        if key not in dictionary:
+            print(f"Key '{key}' not found. Using default value: {default}")
+            return default
+        return dictionary[key]
+
     # Load the checkpoint file
     checkpoint = torch.load(checkpoint_path)
     
@@ -95,12 +101,12 @@ def load_model_from_checkpoint(checkpoint_path: str):
     model_type = model_details['model_type']
     if model_type == 'dino':
         # Extract DINO model specific parameters from YAML
-        dino_model_name = convert_none_str_to_none(model_details.get('dino_model_name', 'facebook/dinov2-base'))
-        output_dim = convert_none_str_to_none(model_details.get('output_dim', None))
-        forward_strat = convert_none_str_to_none(model_details.get('forward_strat', 'cat'))
-        sequence_length = convert_none_str_to_none(model_details.get('sequence_length', None))
-        num_frames = convert_none_str_to_none(model_details.get('num_frames', 1))
-        dropout_rate = convert_none_str_to_none(model_details.get('dropout_rate', 0.1))
+        dino_model_name = convert_none_str_to_none(get_with_print(model_details, 'dino_model_name', 'facebook/dinov2-base'))
+        output_dim = convert_none_str_to_none(get_with_print(model_details, 'output_dim', None))
+        forward_strat = convert_none_str_to_none(get_with_print(model_details, 'forward_strat', 'cat'))
+        sequence_length = convert_none_str_to_none(get_with_print(model_details, 'sequence_length', None))
+        num_frames = convert_none_str_to_none(get_with_print(model_details, 'num_frames', 1))
+        dropout_rate = convert_none_str_to_none(get_with_print(model_details, 'dropout_rate', 0.1))
 
         # Call dino_model_load with the extracted parameters
         model = dino_model_load(
@@ -114,25 +120,24 @@ def load_model_from_checkpoint(checkpoint_path: str):
         
     elif model_type == 'recurrent' or model_type == "recurrent_perceiver":
         # Extract recurrent model specific parameters
-        #perceiver_config = model_details.get('perceiver_config', {})  # assuming this is nested somewhere
         perceiver_config = {
-            "raw_input_dim": convert_none_str_to_none(model_details.get('raw_input_dim', 384)),
-            "embedding_dim": convert_none_str_to_none(model_details.get('embedding_dim', 384)),
-            "latent_dim": convert_none_str_to_none(model_details.get('latent_dim', 384)),
-            "num_heads": convert_none_str_to_none(model_details.get('num_heads', 12)),
-            "num_latents": convert_none_str_to_none(model_details.get('num_latents', 512)),
-            "num_transformer_layers": convert_none_str_to_none(model_details.get('num_tf_layers', 2)),
-            "dropout": convert_none_str_to_none(model_details.get('dropout_rate', 0.1)),
-            "output_dim": convert_none_str_to_none(model_details.get('output_dim', 384)),
-            "use_raw_input": convert_none_str_to_none(model_details.get('use_raw_input', True)),
-            "use_embeddings": convert_none_str_to_none(model_details.get('use_embeddings', True)),
-            "flatten_channels": convert_none_str_to_none(model_details.get('flatten_channels', False)),
+            "raw_input_dim": convert_none_str_to_none(get_with_print(model_details, 'raw_input_dim', 384)),
+            "embedding_dim": convert_none_str_to_none(get_with_print(model_details, 'embedding_dim', 384)),
+            "latent_dim": convert_none_str_to_none(get_with_print(model_details, 'latent_dim', 384)),
+            "num_heads": convert_none_str_to_none(get_with_print(model_details, 'num_heads', 12)),
+            "num_latents": convert_none_str_to_none(get_with_print(model_details, 'num_latents', 512)),
+            "num_transformer_layers": convert_none_str_to_none(get_with_print(model_details, 'num_tf_layers', 2)),
+            "dropout": convert_none_str_to_none(get_with_print(model_details, 'dropout_rate', 0.1)),
+            "output_dim": convert_none_str_to_none(get_with_print(model_details, 'output_dim', 384)),
+            "use_raw_input": convert_none_str_to_none(get_with_print(model_details, 'use_raw_input', True)),
+            "use_embeddings": convert_none_str_to_none(get_with_print(model_details, 'use_embeddings', True)),
+            "flatten_channels": convert_none_str_to_none(get_with_print(model_details, 'flatten_channels', False)),
         }
-        
-        dino_model_name = convert_none_str_to_none(model_details.get('dino_model_name', 'facebook/dinov2-small')),
-        dropout_rate = model_details.get('dropout_rate', 0.1)
-        freeze_image_model = model_details.get('freeze_image_model', True)
-        is_append_avg_emb = model_details.get('is_append_avg_emb', False)
+
+        dino_model_name = convert_none_str_to_none(get_with_print(model_details, 'dino_model_name', 'facebook/dinov2-small'))
+        dropout_rate = get_with_print(model_details, 'dropout_rate', 0.1)
+        freeze_image_model = get_with_print(model_details, 'freeze_image_model', True)
+        is_append_avg_emb = get_with_print(model_details, 'is_append_avg_emb', False)
 
         model = recurrent_model_perceiver_load(
             perceiver_config=perceiver_config, 
@@ -144,19 +149,17 @@ def load_model_from_checkpoint(checkpoint_path: str):
     elif model_type == 'recurrent_decoder':
         print(f"model_details: {model_details}")
         model = RecurrentDecoder(
-            v_size=convert_none_str_to_none(model_details.get("v_size")),
-            d_model=convert_none_str_to_none(model_details.get("d_model")),
-            nhead=convert_none_str_to_none(model_details.get("nhead")),
-            num_layers=convert_none_str_to_none(model_details.get("num_layers")),
-            dim_feedforward=convert_none_str_to_none(model_details.get("dim_feedforward")),
-            dropout=convert_none_str_to_none(model_details.get("dropout_rate")), 
-            activation=convert_none_str_to_none(model_details.get("activation")),
-            temperature=convert_none_str_to_none(model_details.get("temperature")),
-            image_model_name=convert_none_str_to_none(model_details.get("image_model_name")),
-            freeze_image_model=convert_none_str_to_none(model_details.get("freeze_image_model"))
+            v_size=convert_none_str_to_none(get_with_print(model_details, "v_size")),
+            d_model=convert_none_str_to_none(get_with_print(model_details, "d_model")),
+            nhead=convert_none_str_to_none(get_with_print(model_details, "nhead")),
+            num_layers=convert_none_str_to_none(get_with_print(model_details, "num_layers")),
+            dim_feedforward=convert_none_str_to_none(get_with_print(model_details, "dim_feedforward")),
+            dropout=convert_none_str_to_none(get_with_print(model_details, "dropout_rate")), 
+            activation=convert_none_str_to_none(get_with_print(model_details, "activation")),
+            temperature=convert_none_str_to_none(get_with_print(model_details, "temperature")),
+            image_model_name=convert_none_str_to_none(get_with_print(model_details, "image_model_name")),
+            freeze_image_model=convert_none_str_to_none(get_with_print(model_details, "freeze_image_model"))
         )
-
-
     else:
         raise ValueError(f"Unknown model type: {model_type}")
 
