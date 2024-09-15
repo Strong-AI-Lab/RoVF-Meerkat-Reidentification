@@ -314,7 +314,7 @@ class Perceiver(nn.Module):
             latents = self.dropout2(latents)
         if self.use_embeddings:
             embeddings = self.layer_norm1(embeddings)
-            latents_after = self.embedding_cross_attention(latents, embeddings, embeddings)
+            latents_after = self.embedding_cross_attention(latents, embeddings)
             latents = latents + latents_after
             latents = self.dropout3(latents)
 
