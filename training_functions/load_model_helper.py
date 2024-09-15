@@ -97,7 +97,7 @@ def load_model_from_checkpoint(checkpoint_path: str):
         # Extract DINO model specific parameters from YAML
         dino_model_name = convert_none_str_to_none(model_details.get('dino_model_name', 'facebook/dinov2-base'))
         output_dim = convert_none_str_to_none(model_details.get('output_dim', None))
-        forward_strat = convert_none_str_to_none(model_details.get('strategy', 'cat'))
+        forward_strat = convert_none_str_to_none(model_details.get('forward_strat', 'cat'))
         sequence_length = convert_none_str_to_none(model_details.get('sequence_length', None))
         num_frames = convert_none_str_to_none(model_details.get('num_frames', 1))
         dropout_rate = convert_none_str_to_none(model_details.get('dropout_rate', 0.1))
