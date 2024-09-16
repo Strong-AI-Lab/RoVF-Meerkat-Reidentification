@@ -10,7 +10,6 @@ sys.path.append("..")
 
 from models.dinov2_wrapper import DINOv2VideoWrapper
 from models.recurrent_wrapper import RecurrentWrapper
-from models.perceiver_wrapper import CrossAttention, TransformerEncoder, TransformerDecoder, Perceiver
 from models.recurrent_decoder import RecurrentDecoder
 
 import transformers
@@ -68,10 +67,22 @@ def dino_model_load(
 def recurrent_model_perceiver_load(
     perceiver_config, dino_model_name="facebook/dinov2-base", dropout_rate=0.1, freeze_image_model=True, is_append_avg_emb=False
 ):
+    from models.perceiver_wrapper import CrossAttention, TransformerEncoder, TransformerDecoder, Perceiver
     recurrent_model = RecurrentWrapper(
         perceiver_config=perceiver_config, model_name=dino_model_name, 
         dropout_rate=dropout_rate, freeze_image_model=freeze_image_model,
-        is_append_avg_emb=is_append_avg_emb
+        is_append_avg_emb=is_append_avg_emb, type_="v1"
+    )
+    return recurrent_model
+
+def recurrent_model_perceiver_loadv2(
+    perceiver_config, dino_model_name="facebook/dinov2-base", dropout_rate=0.1, freeze_image_model=True, is_append_avg_emb=False
+):
+    from models.perceiver_wrapper import CrossAttention, TransformerEncoder, TransformerDecoder, PerceiverV2 as Perceiver
+    recurrent_model = RecurrentWrapper(
+        perceiver_config=perceiver_config, model_name=dino_model_name, 
+        dropout_rate=dropout_rate, freeze_image_model=freeze_image_model,
+        is_append_avg_emb=is_append_avg_emb, type_="v2"
     )
     return recurrent_model
 
@@ -140,6 +151,34 @@ def load_model_from_checkpoint(checkpoint_path: str):
         is_append_avg_emb = get_with_print(model_details, 'is_append_avg_emb', False)
 
         model = recurrent_model_perceiver_load(
+            perceiver_config=perceiver_config, 
+            dino_model_name=dino_model_name, 
+            dropout_rate=dropout_rate, 
+            freeze_image_model=freeze_image_model,
+            is_append_avg_emb=is_append_avg_emb
+        )
+    elif model_type == "recurrent_perceiverv2":
+        # Extract recurrent model specific parameters
+        perceiver_config = {
+            "raw_input_dim": convert_none_str_to_none(get_with_print(model_details, 'raw_input_dim', 384)),
+            "embedding_dim": convert_none_str_to_none(get_with_print(model_details, 'embedding_dim', 384)),
+            "latent_dim": convert_none_str_to_none(get_with_print(model_details, 'latent_dim', 384)),
+            "num_heads": convert_none_str_to_none(get_with_print(model_details, 'num_heads', 12)),
+            "num_latents": convert_none_str_to_none(get_with_print(model_details, 'num_latents', 512)),
+            "num_transformer_layers": convert_none_str_to_none(get_with_print(model_details, 'num_tf_layers', 2)),
+            "dropout": convert_none_str_to_none(get_with_print(model_details, 'dropout_rate', 0.1)),
+            "output_dim": convert_none_str_to_none(get_with_print(model_details, 'output_dim', 384)),
+            "use_raw_input": convert_none_str_to_none(get_with_print(model_details, 'use_raw_input', True)),
+            "use_embeddings": convert_none_str_to_none(get_with_print(model_details, 'use_embeddings', True)),
+            "flatten_channels": convert_none_str_to_none(get_with_print(model_details, 'flatten_channels', False)),
+        }
+
+        dino_model_name = convert_none_str_to_none(get_with_print(model_details, 'dino_model_name', 'facebook/dinov2-small'))
+        dropout_rate = get_with_print(model_details, 'dropout_rate', 0.1)
+        freeze_image_model = get_with_print(model_details, 'freeze_image_model', True)
+        is_append_avg_emb = get_with_print(model_details, 'is_append_avg_emb', False)
+
+        model = recurrent_model_perceiver_loadv2(
             perceiver_config=perceiver_config, 
             dino_model_name=dino_model_name, 
             dropout_rate=dropout_rate, 

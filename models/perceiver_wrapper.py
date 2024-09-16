@@ -310,12 +310,11 @@ class Perceiver(nn.Module):
 
         if self.use_raw_input:
             flattened_raw_input = raw_input.view(raw_input.size(0), -1, raw_input.size(-1)) # already normalized
-            latents = self.raw_cross_attention(latents, flattened_raw_input)
+            latents = self.raw_cross_attention(latents, flattened_raw_input) + latents # residual connection
             latents = self.dropout2(latents)
         if self.use_embeddings:
             embeddings = self.layer_norm1(embeddings)
-            latents_after = self.embedding_cross_attention(latents, embeddings)
-            latents = latents + latents_after
+            latents = self.embedding_cross_attention(latents, embeddings) + latents # residual connection
             latents = self.dropout3(latents)
 
         latents_res = latents  # Save the original latents for residual connection
@@ -334,6 +333,98 @@ class Perceiver(nn.Module):
 
         return output
 
+class PerceiverV2(nn.Module):
+    def __init__(
+        self, raw_input_dim, embedding_dim, latent_dim, num_heads, num_latents, 
+        num_transformer_layers, dropout, output_dim, use_raw_input=True, use_embeddings=True,
+        flatten_channels=False, use_video_emb=False
+    ):
+        super().__init__()
+        #print(F"\n\n\n REACH \n\n\n")
+        self.latents_p = nn.Parameter(nn.init.xavier_uniform_(torch.randn(num_latents, latent_dim)) * (latent_dim ** 0.5))
+        self.latents = None
+        
+        self.use_video_emb = use_video_emb
+        if use_video_emb:
+            pe_nlatents = num_latents + 1
+        else:
+            pe_nlatents = num_latents
+        self.positional_embeddings = nn.init.xavier_uniform_(nn.Parameter(torch.randn(pe_nlatents, latent_dim)))
+        
+        self.num_latents = num_latents
+        self.raw_input_dim = raw_input_dim
+        self.embedding_dim = embedding_dim
+        self.use_raw_input = use_raw_input
+        self.use_embeddings = use_embeddings
+        assert (use_raw_input or use_embeddings) and not (use_raw_input and use_embeddings), "At least one of use_raw_input or use_embeddings must be True"
+        self.flatten_channels = flatten_channels
+
+        if use_raw_input:
+            self.raw_cross_attention = CrossAttention(latent_dim, embedding_dim, num_heads)
+        if use_embeddings:
+            self.embedding_cross_attention = CrossAttention(latent_dim, embedding_dim, num_heads)
+
+        self.transformer = TransformerEncoder(latent_dim, num_heads, num_transformer_layers, dropout)
+
+        if output_dim is not None:
+            self.output_layer = nn.Linear(latent_dim*num_latents, output_dim)
+        else:
+            self.output_layer = None
+
+        self.layer_norm1 = nn.LayerNorm(embedding_dim)
+        self.layer_norm2 = nn.LayerNorm(latent_dim)
+
+        self.dropout1 = nn.Dropout(dropout)        
+        self.dropout2 = nn.Dropout(dropout)
+        self.dropout3 = nn.Dropout(dropout)
+
+    def reset_latents(self):
+        self.latents = None
+
+    def forward(self, raw_input=None, embeddings=None, video_emb=None, add_pos_emb=True, is_reset_latents=False):
+        if not self.use_raw_input and not self.use_embeddings:
+            raise ValueError("At least one of use_raw_input or use_embeddings must be True")
+
+        if self.use_raw_input and raw_input is None:
+            raise ValueError("raw_input is required when use_raw_input is True")
+
+        if self.use_embeddings and embeddings is None:
+            raise ValueError("embeddings is required when use_embeddings is True")
+
+        batch_size = raw_input.size(0) if raw_input is not None else embeddings.size(0)
+
+        if self.latents is None:
+            latents = self.latents_p.unsqueeze(0).repeat(batch_size, 1, 1)
+        else:
+            latents = self.latents
+        
+        if add_pos_emb:
+            latents = latents + self.positional_embeddings.unsqueeze(0).repeat(batch_size, 1, 1)
+
+        latents = self.dropout1(latents)
+
+        if self.use_raw_input:
+            flattened_raw_input = raw_input.view(raw_input.size(0), -1, raw_input.size(-1))
+            latents = self.raw_cross_attention(latents, flattened_raw_input) + latents
+            latents = self.dropout2(latents)
+        if self.use_embeddings:
+            embeddings = self.layer_norm1(embeddings)
+            latents = self.embedding_cross_attention(latents, embeddings) + latents
+            latents = self.dropout3(latents)
+
+        latents = self.transformer(latents)
+
+        if self.output_layer is not None:
+            output = self.output_layer(latents.view(latents.size(0), -1))
+        else:
+            output = latents[:,0,:]
+
+        if is_reset_latents:
+            self.reset_latents()
+        else:
+            self.latents = latents
+
+        return output
 
 def cross_attention_test():
     latent_dim = 32

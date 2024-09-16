@@ -5,15 +5,21 @@ from transformers import AutoModel
 import sys
 sys.path.append("..")
 
-from models.perceiver_wrapper import CrossAttention, TransformerEncoder, TransformerDecoder, Perceiver
+from models.perceiver_wrapper import CrossAttention, TransformerEncoder, TransformerDecoder
 
 
 class RecurrentWrapper(nn.Module):
     def __init__(
         self, perceiver_config: dict, model_name: str, dropout_rate: float = 0.0,
-        freeze_image_model: bool=True, is_append_avg_emb: bool=False
+        freeze_image_model: bool=True, is_append_avg_emb: bool=False, type_="v1"
     ):
         super(RecurrentWrapper, self).__init__()
+
+        if type_ == "v1":
+            from models.perceiver_wrapper import Perceiver
+        elif type_ == "v2":
+            from models.perceiver_wrapper import PerceiverV2 as Perceiver
+
         # Load the DINOv2 model
         self.image_model = AutoModel.from_pretrained("facebook/dinov2-small")#model_name)
         self.recurrence_model = Perceiver(**perceiver_config)

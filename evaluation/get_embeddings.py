@@ -34,6 +34,8 @@ from training_functions.load_model_helper import load_model_from_checkpoint
 
 import yaml
 
+import argparse
+
 def get_embeddings(
     model_ckpt, transformations, cooccurrences_filepath, clips_directory, 
     num_frames, mode, K, total_frames, zfill_num, is_override, override_value, 

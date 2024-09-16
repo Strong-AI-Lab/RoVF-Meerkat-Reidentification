@@ -275,6 +275,52 @@ def train(yaml_dict, device, ckpt_path):
             }
             anchor_model = anchor_model_load_helper(**config2)
 
+    elif yaml_dict["model_details"]["model_type"] == "recurrent_perceiverv2":
+        #import_recurrence_model()
+        #print(f"RECCCC")
+        from models.perceiver_wrapper import CrossAttention, TransformerEncoder
+        from models.perceiver_wrapper import PerceiverV2 as Perceiver
+        from models.recurrent_wrapper import RecurrentWrapper
+        from models.dinov2_wrapper import DINOv2VideoWrapper
+        from training_functions.load_model_helper import recurrent_model_perceiver_loadv2 as model_load_helper
+        from training_functions.load_model_helper import dino_model_load as anchor_model_load_helper
+        from training_functions.dataloader_helper import dataloader_creation as get_dataloader
+        from get_anchors.anchor_fn import anchor_fn_hard, anchor_fn_hard_rand_anchor, anchor_fn_semi_hard
+        perc_config = {
+            "raw_input_dim": yaml_dict["model_details"]["raw_input_dim"],
+            "embedding_dim": yaml_dict["model_details"]["embedding_dim"],
+            "latent_dim": yaml_dict["model_details"]["latent_dim"],
+            "num_heads": yaml_dict["model_details"]["num_heads"],
+            "num_latents": yaml_dict["model_details"]["num_latents"],
+            "num_transformer_layers": yaml_dict["model_details"]["num_tf_layers"],
+            "dropout": yaml_dict["model_details"]["dropout_rate"],
+            "output_dim": yaml_dict["model_details"]["output_dim"],
+            "use_raw_input": yaml_dict["model_details"]["use_raw_input"],
+            "use_embeddings": yaml_dict["model_details"]["use_embeddings"],
+            "flatten_channels": yaml_dict["model_details"]["flatten_channels"]
+        }
+        assert isinstance(yaml_dict["model_details"]["use_raw_input"], bool) and isinstance(yaml_dict["model_details"]["use_embeddings"], bool) \
+            and isinstance(yaml_dict["model_details"]["flatten_channels"], bool), "use_raw_input, use_embeddings, and flatten_channels must be boolean."
+        config = {
+            "perceiver_config": perc_config,
+            "dino_model_name": yaml_dict["model_details"]["dino_model_name"],
+            "dropout_rate": yaml_dict["model_details"]["dropout_rate"],
+            "freeze_image_model": yaml_dict["model_details"]["freeze_image_model"],
+            "is_append_avg_emb": yaml_dict["model_details"]["is_append_avg_emb"] if "is_append_avg_emb" in yaml_dict["model_details"].keys() else False
+        }
+        model = model_load_helper(**config)
+        
+        if yaml_dict["training_details"]["anchor_dino_model"] is not None:
+            config2 = {
+                "dino_model_name": yaml_dict["training_details"]["anchor_dino_model"],
+                "output_dim": None,
+                "forward_strat": "average",
+                "sequence_length": None,
+                "num_frames": yaml_dict["dataloader_details"]["num_frames"],
+                "dropout_rate": 0.0
+            }
+            anchor_model = anchor_model_load_helper(**config2)
+
     elif yaml_dict["model_details"]["model_type"] == "recurrent_decoder":
         from models.recurrent_decoder import RecurrentDecoder
         from models.dinov2_wrapper import DINOv2VideoWrapper
