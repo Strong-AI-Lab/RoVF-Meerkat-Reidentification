@@ -161,7 +161,7 @@ if __name__ == "__main__":
     parser.add_argument("--apply_mask_percentage", type=float, default=1.0, help="Mask application percentage")
     
     parser.add_argument("--dino_model_name", type=str, default="facebook/dinov2-small", help="DINO model name")
-    parser.add_argument("--output_dim", type=int, default=768, help="Output dimension")
+    parser.add_argument("--output_dim", type=int, default=None, help="Output dimension")
     parser.add_argument("--forward_strat", type=str, default="cls", help="Forward strategy")
     parser.add_argument("--sequence_length", type=int, default=None, help="Sequence length")
     parser.add_argument("--dropout_rate", type=float, default=0.1, help="Dropout rate")

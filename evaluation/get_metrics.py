@@ -103,9 +103,114 @@ def get_metrics(models, df):
         top1 = np.mean(results[m, :, 0])  # Average top-1 accuracy
         top3 = np.mean(results[m, :, 1])  # Average top-3 accuracy
         unique_top3 = np.mean(results[m, :, 2])  # Average number of unique elements in top-3
+        # print out the results
+        print(f"Model {m}: Top-1 Accuracy: {top1}, Top-3 Accuracy: {top3}, Unique in Top-3: {unique_top3}")
         metrics.append((top1, top3, unique_top3))
 
     return metrics
+
+def get_dino_pretrained_results_meerkat():
+    models = [
+        "../results/pre_trained_model/dinov2-base/dinov2-base_average_5frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/dinov2-base/dinov2-base_average_5frames_meerkat_without_mask.pkl",
+        "../results/pre_trained_model/dinov2-base/dinov2-base_average_10frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/dinov2-base/dinov2-base_average_10frames_meerkat_without_mask.pkl",
+        "../results/pre_trained_model/dinov2-base/dinov2-base_max_5frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/dinov2-base/dinov2-base_max_5frames_meerkat_without_mask.pkl",
+        "../results/pre_trained_model/dinov2-base/dinov2-base_max_10frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/dinov2-base/dinov2-base_max_10frames_meerkat_without_mask.pkl",
+        
+        "../results/pre_trained_model/dinov2-small/dinov2-small_average_5frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/dinov2-small/dinov2-small_average_5frames_meerkat_without_mask.pkl",
+        "../results/pre_trained_model/dinov2-small/dinov2-small_average_10frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/dinov2-small/dinov2-small_average_10frames_meerkat_without_mask.pkl",
+        "../results/pre_trained_model/dinov2-small/dinov2-small_max_5frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/dinov2-small/dinov2-small_max_5frames_meerkat_without_mask.pkl",
+        "../results/pre_trained_model/dinov2-small/dinov2-small_max_10frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/dinov2-small/dinov2-small_max_10frames_meerkat_without_mask.pkl",
+        
+        "../results/pre_trained_model/dinov2-large/dinov2-large_average_5frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/dinov2-large/dinov2-large_average_5frames_meerkat_without_mask.pkl",
+        "../results/pre_trained_model/dinov2-large/dinov2-large_average_10frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/dinov2-large/dinov2-large_average_10frames_meerkat_without_mask.pkl",
+        "../results/pre_trained_model/dinov2-large/dinov2-large_max_5frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/dinov2-large/dinov2-large_max_5frames_meerkat_without_mask.pkl",
+        "../results/pre_trained_model/dinov2-large/dinov2-large_max_10frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/dinov2-large/dinov2-large_max_10frames_meerkat_without_mask.pkl",
+        
+        "../results/pre_trained_model/dinov2-giant/dinov2-giant_average_5frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/dinov2-giant/dinov2-giant_average_5frames_meerkat_without_mask.pkl",
+        "../results/pre_trained_model/dinov2-giant/dinov2-giant_average_10frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/dinov2-giant/dinov2-giant_average_10frames_meerkat_without_mask.pkl",
+        "../results/pre_trained_model/dinov2-giant/dinov2-giant_max_5frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/dinov2-giant/dinov2-giant_max_5frames_meerkat_without_mask.pkl",
+        "../results/pre_trained_model/dinov2-giant/dinov2-giant_max_10frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/dinov2-giant/dinov2-giant_max_10frames_meerkat_without_mask.pkl"
+    ]
+
+    # Load dataframe of test examples
+    df = pd.read_csv("../Dataset/meerkat_h5files/Precomputed_test_examples_meerkat.csv")
+    
+    # Get metrics for all models
+    metrics = get_metrics(models, df)
+    
+    # Save the results to a text file
+    with open("../results/pre_trained_model/meerkat_results.txt", "w") as file:
+        # Write the results for each model
+        for i, (top1, top3, unique_top3) in enumerate(metrics):
+            file.write(f"Model {i}: Top-1 Accuracy: {top1}, Top-3 Accuracy: {top3}, Unique in Top-3: {unique_top3} - {models[i]}\n")
+
+def get_dino_pretrained_results_polarbears():
+    models = [
+        "../results/pre_trained_model/dinov2-base/dinov2-base_average_5frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/dinov2-base/dinov2-base_average_5frames_polarbears_without_mask.pkl",
+        "../results/pre_trained_model/dinov2-base/dinov2-base_average_10frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/dinov2-base/dinov2-base_average_10frames_polarbears_without_mask.pkl",
+        "../results/pre_trained_model/dinov2-base/dinov2-base_max_5frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/dinov2-base/dinov2-base_max_5frames_polarbears_without_mask.pkl",
+        "../results/pre_trained_model/dinov2-base/dinov2-base_max_10frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/dinov2-base/dinov2-base_max_10frames_polarbears_without_mask.pkl",
+        
+        "../results/pre_trained_model/dinov2-small/dinov2-small_average_5frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/dinov2-small/dinov2-small_average_5frames_polarbears_without_mask.pkl",
+        "../results/pre_trained_model/dinov2-small/dinov2-small_average_10frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/dinov2-small/dinov2-small_average_10frames_polarbears_without_mask.pkl",
+        "../results/pre_trained_model/dinov2-small/dinov2-small_max_5frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/dinov2-small/dinov2-small_max_5frames_polarbears_without_mask.pkl",
+        "../results/pre_trained_model/dinov2-small/dinov2-small_max_10frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/dinov2-small/dinov2-small_max_10frames_polarbears_without_mask.pkl",
+        
+        "../results/pre_trained_model/dinov2-large/dinov2-large_average_5frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/dinov2-large/dinov2-large_average_5frames_polarbears_without_mask.pkl",
+        "../results/pre_trained_model/dinov2-large/dinov2-large_average_10frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/dinov2-large/dinov2-large_average_10frames_polarbears_without_mask.pkl",
+        "../results/pre_trained_model/dinov2-large/dinov2-large_max_5frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/dinov2-large/dinov2-large_max_5frames_polarbears_without_mask.pkl",
+        "../results/pre_trained_model/dinov2-large/dinov2-large_max_10frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/dinov2-large/dinov2-large_max_10frames_polarbears_without_mask.pkl",
+        
+        "../results/pre_trained_model/dinov2-giant/dinov2-giant_average_5frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/dinov2-giant/dinov2-giant_average_5frames_polarbears_without_mask.pkl",
+        "../results/pre_trained_model/dinov2-giant/dinov2-giant_average_10frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/dinov2-giant/dinov2-giant_average_10frames_polarbears_without_mask.pkl",
+        "../results/pre_trained_model/dinov2-giant/dinov2-giant_max_5frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/dinov2-giant/dinov2-giant_max_5frames_polarbears_without_mask.pkl",
+        "../results/pre_trained_model/dinov2-giant/dinov2-giant_max_10frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/dinov2-giant/dinov2-giant_max_10frames_polarbears_without_mask.pkl"
+    ]
+
+    # Load dataframe of test examples
+    df = pd.read_csv("../Dataset/polarbears_h5files/Precomputed_test_examples_PB.csv")
+    
+    # Get metrics for all models
+    metrics = get_metrics(models, df)
+    
+    # Save the results to a text file
+    with open("../results/pre_trained_model/polarbears_results.txt", "w") as file:
+        # Write the results for each model
+        for i, (top1, top3, unique_top3) in enumerate(metrics):
+            file.write(f"Model {i}: Top-1 Accuracy: {top1}, Top-3 Accuracy: {top3}, Unique in Top-3: {unique_top3} - {models[i]}\n")
+
 
 def main():
     # List of model embedding paths
@@ -124,4 +229,6 @@ def main():
         print(f"Model {i}: Top-1 Accuracy: {top1}, Top-3 Accuracy: {top3}, Unique in Top-3: {unique_top3}")
 
 if __name__ == "__main__":
-    main()
+    #main()
+    get_dino_pretrained_results_meerkat()
+    get_dino_pretrained_results_polarbears()
