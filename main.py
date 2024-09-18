@@ -353,6 +353,11 @@ def train(yaml_dict, device, ckpt_path):
         
         set_dropout_p_recursive(model, yaml_dict["model_details"]["dropout_rate"])
 
+    elif yaml_dict["model_details"]["model_type"] in ["ResNet152", "ResNet18", "VGG-16", "ResNet50"]:
+        from get_anchors.anchor_fn import anchor_fn_hard, anchor_fn_hard_rand_anchor, anchor_fn_semi_hard
+        from training_functions.dataloader_helper import dataloader_creation as get_dataloader
+        from training_functions.load_model_helper import image_model_load
+        model = image_model_load(yaml_dict["model_details"]["model_type"], yaml_dict["model_details"]["embedding_dim"], training=True)
     else:
         raise ValueError("Invalid model type.")
 

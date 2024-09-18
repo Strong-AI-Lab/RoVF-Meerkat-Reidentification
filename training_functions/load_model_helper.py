@@ -86,6 +86,37 @@ def recurrent_model_perceiver_loadv2(
     )
     return recurrent_model
 
+def image_model_load(model_type, embed_dim, training=False):
+    import torchvision.models as models
+    if model_type == 'VGG-16':
+        import torchvision.models as models
+        model = models.vgg16()
+    elif model_type == 'ResNet18':
+        import torchvision.models as models
+        model = models.resnet18()
+    elif model_type == 'ResNet50':
+        import torchvision.models as models
+        model = models.resnet50()
+    elif model_type == 'ResNet152':
+        model = models.resnet152()
+    
+    if training:
+        # Freeze all the layers in the model
+        for param in model.parameters():
+            param.requires_grad = False
+    
+    model.fc = nn.Sequential(nn.Linear(model.fc.in_features, 2048),nn.ReLU(),nn.Linear(2048,embed_dim))
+
+    if training:
+        # Initialise weights of FC layer
+        def init_weights(m):
+            if isinstance(m, nn.Linear):
+                torch.nn.init.xavier_uniform_(m.weight)
+                m.bias.data.fill_(0.01)
+        init_weights(model.fc)
+        
+    return model
+
 def load_model_from_checkpoint(checkpoint_path: str):
     
     def convert_none_str_to_none(value):
@@ -199,6 +230,8 @@ def load_model_from_checkpoint(checkpoint_path: str):
             image_model_name=convert_none_str_to_none(get_with_print(model_details, "image_model_name")),
             freeze_image_model=convert_none_str_to_none(get_with_print(model_details, "freeze_image_model"))
         )
+    elif model_type in ["ResNet18", "ResNet50", "ResNet152", "VGG-16"]:
+        model = image_model_load(model_type, get_with_print(model_details, 'embedding_dim', 256))
     else:
         raise ValueError(f"Unknown model type: {model_type}")
 
