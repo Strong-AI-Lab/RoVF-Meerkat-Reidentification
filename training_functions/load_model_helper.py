@@ -100,21 +100,38 @@ def image_model_load(model_type, embed_dim, training=False):
     elif model_type == 'ResNet152':
         model = models.resnet152()
     
-    if training:
-        # Freeze all the layers in the model
-        for param in model.parameters():
-            param.requires_grad = False
-    
-    model.fc = nn.Sequential(nn.Linear(model.fc.in_features, 2048),nn.ReLU(),nn.Linear(2048,embed_dim))
+    # Initialise weights of FC layer
+    def init_weights(m):
+        if isinstance(m, nn.Linear):
+            torch.nn.init.xavier_uniform_(m.weight)
+            m.bias.data.fill_(0.01)
 
-    if training:
-        # Initialise weights of FC layer
-        def init_weights(m):
-            if isinstance(m, nn.Linear):
-                torch.nn.init.xavier_uniform_(m.weight)
-                m.bias.data.fill_(0.01)
-        init_weights(model.fc)
+    if "ResNet" in model_type:
+        if training:
+            # Freeze all the layers in the model
+            for param in model.parameters():
+                param.requires_grad = False
         
+        model.fc = nn.Sequential(nn.Linear(model.fc.in_features, 2048),nn.ReLU(),nn.Linear(2048,embed_dim))
+
+        if training:
+            init_weights(model.fc)
+    else:
+        if training:
+            for param in model.features.parameters():
+                param.requires_grad = False
+
+        model.classifier = nn.Sequential(
+            model.classifier[0], 
+            model.classifier[1], 
+            model.classifier[2], 
+            nn.Linear(model.classifier[3].in_features, 2048),
+            nn.ReLU(),
+            nn.Linear(2048,embed_dim)
+        )
+
+        if training:
+            init_weights(model.classifier)
     return model
 
 def load_model_from_checkpoint(checkpoint_path: str):
