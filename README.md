@@ -10,13 +10,13 @@ This repository contains the codebase for the paper **RoVF for Animal Re-identif
 > Recent advances in deep learning have significantly improved the accuracy and scalability of animal re-identification methods by automating the extraction of subtle distinguishing features from images and videos. This enables large-scale non-invasive monitoring of animal populations. We propose a segmentation pipeline and a re-identification model to re-identify animals without ground-truth IDs. The segmentation pipeline segments animals from the background based on their bounding boxes using the DINOv2 and segment anything model 2 (SAM2) foundation models. For re-identification, we introduce a method called recurrence over video frames (RoVF), which uses a recurrent component based on the Perceiver transformer on top of a DINOv2 image model to iteratively construct embeddings from video frames. We report the performance of the proposed segmentation pipeline and re-identification model using video datasets of meerkats and polar bears (PolarBearVidID). The proposed segmentation model achieved high accuracy (94.56% and 97.37%) and IoU (73.94% and 93.08%) for meerkats and polar bears, respectively. We found that RoVF outperformed frame- and video-based baselines, achieving 46.5% and 55% top-1 accuracy on masked test sets for meerkats and polar bears, respectively. These methods show promise in reducing the annotation burden in future individual-based ecological studies. The code is available at [https://github.com/Strong-AI-Lab/RoVF-Meerkat-Reidentification](https://github.com/Strong-AI-Lab/RoVF-Meerkat-Reidentification).
 
 ## TODO list
-We are still updating this repository, and in particular we plan to make the following changes:
+We are still updating this repository, and in particular, we plan to make the following changes:
 * Improve this README. 
 * Add segmentation code.
 * Fix instillation: some packages are not installed correctly.
 * Upload all training yaml files.
 * Update comments/documentation for all files.
-* Add instruction on how to run the re-identification main.py through the command line.
+* Add instructions on how to run the re-identification main.py through the command line.
 * Generate_yml.py should be updated to create all yaml file documents as well as results/ folder structure.
 * Instructions on how to set up Dataset/ folder (perhaps from downloadable links) and a bash script.
 
@@ -30,7 +30,7 @@ python setup_environment.py
 
 
 ## Downloading data
-For our experiments we use two animal video datasets:
+For our experiments, we use two animal video datasets:
 * [Meerkats](https://meerkat-dataset.github.io/re-id/) based on the [Meerkat behaviour recognition dataset](https://meerkat-dataset.github.io/)
 * Polar bears based on the [PolarBearVidID dataset](https://doi.org/10.3390/ani13050801) (Zuerl et al. 2023)
 
@@ -43,8 +43,10 @@ We provide a link to download the dataset (~22 GB) in the correct format for the
 
 
 ## Segmentation
-<video id="segmentationVid" autoplay muted loop><source src="figures/Segmentation_animation.mp4" type="video/mp4"></video>
-*Example video of the segmentation performance, including cases where the peformance is poor.*
+
+https://github.com/user-attachments/assets/8177ab7a-e43f-486b-aff8-f9eba1767d62
+
+*Example video of the segmentation performance, including cases where the performance is poor.*
 
 The segmentation approach we use is based on two foundation models [DINOv2]() and [Segment Anything Model 2 (SAM 2)](https://github.com/facebookresearch/segment-anything-2).
 
@@ -57,7 +59,7 @@ The segmentation approach we use is based on two foundation models [DINOv2]() an
 
 - **dataloaders/:** Data loaders for efficiently fetching and preparing data during training and inference. This directory defines how the data pipeline is structured.
 
-- **evaluation/:** Scripts and utilities for evaluating the model performance, including metrics and visualizations. Results of the reidentification model are analyzed here.
+- **evaluation/:** Scripts and utilities for evaluating the model performance, including metrics and visualizations. The results of the reidentification model are analyzed here.
 
 - **figures/:** Contains generated figures and visualizations used to evaluate the performance and other aspects of the model.
 
