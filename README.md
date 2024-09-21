@@ -18,7 +18,6 @@ We are still updating this repository, and in particular, we plan to make the fo
 * Update comments/documentation for all files.
 * Add instructions on how to run the re-identification main.py through the command line.
 * Generate_yml.py should be updated to create all yaml file documents as well as results/ folder structure.
-* Instructions on how to set up Dataset/ folder (perhaps from downloadable links) and a bash script.
 
 ## Installation
 
@@ -29,14 +28,21 @@ python setup_environment.py
 ```
 
 
-## Downloading data
+## Downloading the datasets
 For our experiments, we use two animal video datasets:
 * [Meerkats](https://meerkat-dataset.github.io/re-id/) based on the [Meerkat behaviour recognition dataset](https://meerkat-dataset.github.io/)
 * Polar bears based on the [PolarBearVidID dataset](https://doi.org/10.3390/ani13050801) (Zuerl et al. 2023)
 
-We provide a link to download the dataset (~22 GB) in the correct format for the meerkats on [the dataset page](https://meerkat-dataset.github.io/re-id/). The zip file can be extracted to the */Dataset/* folder. For the polar bear dataset we provide a python script in the */Dataset/* folder to convert the dataset to the format we use here.
+We provide a link to download the dataset (~22 GB) in the correct format for the meerkats on [the meerkat re-identification dataset page](https://meerkat-dataset.github.io/re-id/). This zip file can be extracted to the */Dataset/* folder. For the polar bear dataset we provide a python script in the */Dataset/* folder to convert the dataset to the format we use here.
 
-*TODO: Add script to process the dataset*
+To convert the PolarBearVidID dataset, download the [PolarBearVidID.zip](https://zenodo.org/records/7564529) file and use the following script to convert the dataset into the h5 file format used by our dataloader.
+
+```bash
+cd Dataset
+py convert_polar_bear_dataset.py PolarBearVidID.zip
+```
+
+Where "PolarBearVidID.zip" is the path to the zip file.
 
 ## Background masking
 
