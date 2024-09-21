@@ -38,19 +38,26 @@ We provide a link to download the dataset (~22 GB) in the correct format for the
 
 *TODO: Add script to process the dataset*
 
-## Re-identification
-
-
-
-## Segmentation
+## Background masking
 
 https://github.com/user-attachments/assets/8177ab7a-e43f-486b-aff8-f9eba1767d62
 
-*Example video of the segmentation performance, including cases where the performance is poor.*
+*Example video of the background masking performance, including cases where the performance is poor.*
 
-The segmentation approach we use is based on two foundation models [DINOv2]() and [Segment Anything Model 2 (SAM 2)](https://github.com/facebookresearch/segment-anything-2).
+The background masking approach we use is based on two foundation models [DINOv2]() and [Segment Anything Model 2 (SAM 2)](https://github.com/facebookresearch/segment-anything-2).
 
-*TODO: Add code to apply these segmentation methods*
+*TODO: Add code to apply this background masking method*
+
+
+## Re-identification
+
+https://github.com/user-attachments/assets/96c3898b-8fd6-4577-b637-33da5c7a01dd
+
+*Example video of incorrect (red), correct (green), and correct top-3 (blue) re-identifications of a query clip (left-most column) using the best RoVF model. The embedding distance between the query and gallery clip is shown underneath each thumbnail. The embeddings are based on the masked clips and displayed unmasked.
+
+*TODO: Add instructions how to use the code
+
+
 
 
 ## Folder Structure
