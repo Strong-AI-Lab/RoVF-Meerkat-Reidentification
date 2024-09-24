@@ -1,7 +1,6 @@
 import torch
 from torch.utils.data import Dataset, DataLoader
 import random
-import matplotlib.pyplot as plt
 import numpy as np
 from collections import defaultdict
 import h5py

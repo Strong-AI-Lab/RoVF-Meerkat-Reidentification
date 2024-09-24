@@ -9,11 +9,21 @@ This repository contains the codebase for the paper **RoVF for Animal Re-identif
 
 > Recent advances in deep learning have significantly improved the accuracy and scalability of animal re-identification methods by automating the extraction of subtle distinguishing features from images and videos. This enables large-scale non-invasive monitoring of animal populations. We propose a segmentation pipeline and a re-identification model to re-identify animals without ground-truth IDs. The segmentation pipeline segments animals from the background based on their bounding boxes using the DINOv2 and segment anything model 2 (SAM2) foundation models. For re-identification, we introduce a method called recurrence over video frames (RoVF), which uses a recurrent component based on the Perceiver transformer on top of a DINOv2 image model to iteratively construct embeddings from video frames. We report the performance of the proposed segmentation pipeline and re-identification model using video datasets of meerkats and polar bears (PolarBearVidID). The proposed segmentation model achieved high accuracy (94.56% and 97.37%) and IoU (73.94% and 93.08%) for meerkats and polar bears, respectively. We found that RoVF outperformed frame- and video-based baselines, achieving 46.5% and 55% top-1 accuracy on masked test sets for meerkats and polar bears, respectively. These methods show promise in reducing the annotation burden in future individual-based ecological studies. The code is available at [https://github.com/Strong-AI-Lab/RoVF-Meerkat-Reidentification](https://github.com/Strong-AI-Lab/RoVF-Meerkat-Reidentification).
 
+## Overview
+- [TODO list](#todo-list)
+- [Installation](#installation)
+- [Downloading the datasets](#downloading-the-datasets)
+- [Background masking](#background-masking)
+- [Re-identification](#re-identification)
+- [Folder structure](#folder-structure)
+- [Acknowledgments](#acknowledgements)
+
 ## TODO list
 We are still updating this repository, and in particular, we plan to make the following changes:
 * Improve this README. 
-* Add segmentation code.
-* Fix instillation: some packages are not installed correctly.
+* Add segmentation evaluation code.
+* Add some improvements to the segmentation code and documentation.
+* Fix installation: some packages are not installed correctly.
 * Upload all training yaml files.
 * Update comments/documentation for all files.
 * Add instructions on how to run the re-identification main.py through the command line.
@@ -50,16 +60,32 @@ https://github.com/user-attachments/assets/8177ab7a-e43f-486b-aff8-f9eba1767d62
 
 *Example video of the background masking performance, including cases where the performance is poor.*
 
-The background masking approach we use is based on two foundation models [DINOv2]() and [Segment Anything Model 2 (SAM 2)](https://github.com/facebookresearch/segment-anything-2).
+The background masking approach we use is based on two foundation models [DINOv2](https://dinov2.metademolab.com/) and [Segment Anything Model 2 (SAM 2)](https://github.com/facebookresearch/segment-anything-2). This requires SAM 2 repository to be installed, see the submodule install instructions on their GitHub repository.
 
-*TODO: Add code to apply this background masking method*
+The code for this approach is provided in the */segmentation/* folder and can by applied using:
+```bash
+py DINOv2_LDA_SAM2.py -i polarbears_h5files -o polarbears 
+```
 
+This process is resource intensive. We have optimised the batch_size and resize_factor to utilise our GPUs (RTX A6000) available memory, however, it may be possible to parallelise this more effectively. To process the **test set** of the polar bear dataset this takes ~1 hour (13s per clip), and for the meerkat dataset this is even longer.
+
+The main arguments are:
+* *-o*: Output folder name.
+* *-i*: Path to input dataset folder.
+* *-m*: Whether to use LDA (True) or PCA (False). Uses LDA by default.
+* *-fp*: List of frame prompts to use (default [0, 10, 19])
+* *-t*: Test mode, whether to apply this to only the test set or all sets, defaults to True.
+* *-d*: Device to load models, default is "cuda".
+* *-mb*: Whether to mask background using bounding boxes, defaults to True.
+* *-s*: Whehter to apply the SAM2 model (True) or not (False). Defaults to True.
+* *-b*: How many frames to process simultaneously.
+* *-r*: Resize factor for images. By default we use 4x, rescaling our images from 224x224 to 896x896, which then becomes embeddings with dimensions 64x64. 
 
 ## Re-identification
 
 https://github.com/user-attachments/assets/96c3898b-8fd6-4577-b637-33da5c7a01dd
 
-*Example video of incorrect (red), correct (green), and correct top-3 (blue) re-identifications of a query clip (left-most column) using the best RoVF model. The embedding distance between the query and gallery clip is shown underneath each thumbnail. The embeddings are based on the masked clips and displayed unmasked.
+*Example video of incorrect (red), correct (green), and correct top-3 (blue) re-identifications of a query clip (left-most column) using the best RoVF model. The embedding distance between the query and gallery clip is shown underneath each thumbnail. The embeddings are based on the masked clips and displayed unmasked.*
 
 *TODO: Add instructions how to use the code
 
