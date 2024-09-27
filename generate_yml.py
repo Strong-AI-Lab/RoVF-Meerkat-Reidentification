@@ -2,15 +2,15 @@ import os
 import copy
 import yaml
 
-def create_yaml_config_rovf_emb_v2(
+def create_yaml_config_RoVF_S(
     mask_type=["mask", "no_mask", "50/50"],
     fps=[0.5, 1], 
     aug=["no_aug", "aug"],
 ):
-    #with open(yml_path, 'w') as file:
-    #    yaml.dump(config, file)
 
-    filepath = "training_scripts/exp_metadata/hyperparameter_search/rovf_embv2/"
+    # RoVF_S
+
+    filepath = "training_scripts/exp_metadata/hyperparameter_search/RoVF_S/"
     if not os.path.exists(filepath):
         os.makedirs(filepath)
 
@@ -122,10 +122,10 @@ def create_yaml_config_rovf_emb_v2(
                 else:
                     raise ValueError("Invalid augmentation type")
                 
-                config['training_details']['log_directory'] = f"results/hyperparameter_search/rovf_embv2/{mask_filename}/{fps_filename}/{aug_filename}/"
+                config['training_details']['log_directory'] = f"results/hyperparameter_search/RoVF_S/{mask_filename}/{fps_filename}/{aug_filename}/"
 
                 # in results/hyperparameter_search/rovf/ create a folder of this name
-                directory = f"results/hyperparameter_search/rovf_embv2/{mask_filename}/{fps_filename}/{aug_filename}/"
+                directory = f"results/hyperparameter_search/RoVF_S/{mask_filename}/{fps_filename}/{aug_filename}/"
                 if not os.path.exists(directory):
                     os.makedirs(directory)
                 
@@ -134,15 +134,14 @@ def create_yaml_config_rovf_emb_v2(
                 with open(filename, 'w') as file:
                     yaml.dump(config, file)
 
-def create_yaml_config_rovf_emb(
+def create_yaml_config_RoVF_S_af(
     mask_type=["mask", "no_mask", "50/50"],
     fps=[0.5, 1], 
     aug=["no_aug", "aug"],
 ):
-    #with open(yml_path, 'w') as file:
-    #    yaml.dump(config, file)
+    # RoVF_S_af
 
-    filepath = "training_scripts/exp_metadata/hyperparameter_search/rovf_emb/"
+    filepath = "training_scripts/exp_metadata/hyperparameter_search/RoVF_S_af/"
     if not os.path.exists(filepath):
         os.makedirs(filepath)
 
@@ -254,10 +253,10 @@ def create_yaml_config_rovf_emb(
                 else:
                     raise ValueError("Invalid augmentation type")
                 
-                config['training_details']['log_directory'] = f"results/hyperparameter_search/rovf_emb/{mask_filename}/{fps_filename}/{aug_filename}/"
+                config['training_details']['log_directory'] = f"results/hyperparameter_search/RoVF_S_af/{mask_filename}/{fps_filename}/{aug_filename}/"
 
                 # in results/hyperparameter_search/rovf/ create a folder of this name
-                directory = f"results/hyperparameter_search/rovf_emb/{mask_filename}/{fps_filename}/{aug_filename}/"
+                directory = f"results/hyperparameter_search/RoVF_S_af/{mask_filename}/{fps_filename}/{aug_filename}/"
                 if not os.path.exists(directory):
                     os.makedirs(directory)
                 
@@ -266,15 +265,15 @@ def create_yaml_config_rovf_emb(
                 with open(filename, 'w') as file:
                     yaml.dump(config, file)
 
-def create_yaml_config_rovf_emb_spatial_temporal_v2(
+def create_yaml_config_RoVF_S_st(
     mask_type=["mask", "no_mask", "50/50"],
     fps=[0.5, 1], 
     aug=["no_aug", "aug"],
-):
-    #with open(yml_path, 'w') as file:
-    #    yaml.dump(config, file)
+): 
 
-    filepath = "training_scripts/exp_metadata/hyperparameter_search/rovf_emb_spatial_temporalv2/"
+    # RoVF_S_st
+
+    filepath = "training_scripts/exp_metadata/hyperparameter_search/RoVF_S_st/"
     if not os.path.exists(filepath):
         os.makedirs(filepath)
 
@@ -387,10 +386,10 @@ def create_yaml_config_rovf_emb_spatial_temporal_v2(
                 else:
                     raise ValueError("Invalid augmentation type")
                 
-                config['training_details']['log_directory'] = f"results/hyperparameter_search/rovf_emb_spatial_temporalv2/{mask_filename}/{fps_filename}/{aug_filename}/"
+                config['training_details']['log_directory'] = f"results/hyperparameter_search/RoVF_S_st/{mask_filename}/{fps_filename}/{aug_filename}/"
 
                 # in results/hyperparameter_search/rovf/ create a folder of this name
-                directory = f"results/hyperparameter_search/rovf_emb_spatial_temporalv2/{mask_filename}/{fps_filename}/{aug_filename}/"
+                directory = f"results/hyperparameter_search/RoVF_S_st/{mask_filename}/{fps_filename}/{aug_filename}/"
                 if not os.path.exists(directory):
                     os.makedirs(directory)
                 
@@ -399,15 +398,14 @@ def create_yaml_config_rovf_emb_spatial_temporal_v2(
                 with open(filename, 'w') as file:
                     yaml.dump(config, file)
 
-def create_yaml_config_rovf_emb_spatial_temporal(
+def create_yaml_config_RoVF_S_af_st(
     mask_type=["mask", "no_mask", "50/50"],
     fps=[0.5, 1], 
     aug=["no_aug", "aug"],
 ):
-    #with open(yml_path, 'w') as file:
-    #    yaml.dump(config, file)
+    # RoVF_S_af_st
 
-    filepath = "training_scripts/exp_metadata/hyperparameter_search/rovf_emb_spatial_temporal/"
+    filepath = "training_scripts/exp_metadata/hyperparameter_search/RoVF_S_af_st/"
     if not os.path.exists(filepath):
         os.makedirs(filepath)
 
@@ -520,10 +518,10 @@ def create_yaml_config_rovf_emb_spatial_temporal(
                 else:
                     raise ValueError("Invalid augmentation type")
                 
-                config['training_details']['log_directory'] = f"results/hyperparameter_search/rovf_emb_spatial_temporal/{mask_filename}/{fps_filename}/{aug_filename}/"
+                config['training_details']['log_directory'] = f"results/hyperparameter_search/RoVF_S_af_st/{mask_filename}/{fps_filename}/{aug_filename}/"
 
                 # in results/hyperparameter_search/rovf/ create a folder of this name
-                directory = f"results/hyperparameter_search/rovf_emb_spatial_temporal/{mask_filename}/{fps_filename}/{aug_filename}/"
+                directory = f"results/hyperparameter_search/RoVF_S_af_st/{mask_filename}/{fps_filename}/{aug_filename}/"
                 if not os.path.exists(directory):
                     os.makedirs(directory)
                 
@@ -537,8 +535,7 @@ def create_yaml_config_rovf_perc(
     fps=[0.5, 1], 
     aug=["no_aug", "aug"],
 ):
-    #with open(yml_path, 'w') as file:
-    #    yaml.dump(config, file)
+    # Not used, but kept for reference
 
     filepath = "training_scripts/exp_metadata/hyperparameter_search/rovf_perc/"
     if not os.path.exists(filepath):
@@ -792,10 +789,38 @@ def create_yaml_config_dino(
                 with open(filename, 'w') as file:
                     yaml.dump(config, file)
 
+def create_full_model_training():
+    # yaml files already in github repo. Just need to create directories
+    filepath_list = [
+        "results/full_model_training/dinov2_avg_50_50_aug_0p5_fps_meerkat/",
+        "results/full_model_training/dinov2_avg_50_50_aug_0p5_fps_polarbear/",
+        "results/full_model_training/resnet18_meerkat/",
+        "results/full_model_training/resnet18_polarbear/",
+        "results/full_model_training/resnet50_meerkat/",
+        "results/full_model_training/resnet50_polarbear/",
+        "results/full_model_training/resnet152_meerkat/",
+        "results/full_model_training/resnet152_polarbear/",
+        "results/full_model_training/rovf_s_af_50_50_no_aug_0p5_fps_meerkat/",
+        "results/full_model_training/rovf_s_af_50_50_no_aug_0p5_fps_polarbear/",
+        "results/full_model_training/rovf_s_af_mask_0p5_no_aug_fps_meerkat/",
+        "results/full_model_training/rovf_s_af_mask_0p5_no_aug_fps_polarbear/",
+        "results/full_model_training/rovf_s_af_st_no_mask_0p5_aug_fps_meerkat/",
+        "results/full_model_training/rovf_s_af_st_no_mask_0p5_aug_fps_polarbear/",
+        "results/full_model_training/rovf_s_st_mask_no_aug_0p5_fps_meerkat/",
+        "results/full_model_training/rovf_s_st_mask_no_aug_0p5_fps_polarbear/",
+        "results/full_model_training/vgg-16_meerkat/",
+        "results/full_model_training/vgg-16_polarbear/"
+    ]
+    for path in filepath_list:
+        if not os.path.exists(path):
+            os.makedirs(path)
+
 if __name__ == "__main__":
+    
     create_yaml_config_dino()
-    create_yaml_config_rovf_emb()
-    create_yaml_config_rovf_emb_v2()
-    create_yaml_config_rovf_perc()
-    create_yaml_config_rovf_emb_spatial_temporal()
-    create_yaml_config_rovf_emb_spatial_temporal_v2()
+    create_yaml_config_RoVF_S()
+    create_yaml_config_RoVF_S_af()
+    create_yaml_config_RoVF_S_st()
+    create_yaml_config_RoVF_S_af_st()
+    create_full_model_training()
+

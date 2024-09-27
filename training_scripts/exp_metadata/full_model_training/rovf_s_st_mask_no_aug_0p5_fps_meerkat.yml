@@ -9,11 +9,7 @@ dataloader_details:
   num_frames: 5
   override_value: 5000
   total_frames: 20
-  transformations:
-  - random_resized_crop
-  - horizontal_flip
-  - gaussian_blur
-  - color_jitter
+  transformations: null
   zfill_num: 4
 model_details:
   dino_model_name: facebook/dinov2-small
@@ -21,6 +17,7 @@ model_details:
   embedding_dim: 384
   flatten_channels: false
   freeze_image_model: true
+  is_append_avg_emb: true
   latent_dim: 384
   model_type: recurrent_perceiverv2
   num_heads: 8
@@ -42,8 +39,8 @@ training_details:
     margin: 1.0
     name: triplet_margin_loss
     p: 2
-  epochs: 1
-  log_directory: results/hyperparameter_search/rovf_embv2/mask/0p5_fps/aug/
+  epochs: 10
+  log_directory: results/full_model_training/rovf_s_st_mask_no_aug_0p5_fps_meerkat/
   optimizer_details:
     lr: 0.0001
     name: adamw

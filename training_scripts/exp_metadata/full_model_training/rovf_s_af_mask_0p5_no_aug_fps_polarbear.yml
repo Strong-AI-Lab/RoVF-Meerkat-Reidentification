@@ -1,24 +1,20 @@
 dataloader_details:
   K: 20
-  apply_mask_percentage: 0.5
-  clips_directory: Dataset/meerkat_h5files/clips/
-  cooccurrences_filepath: Dataset/meerkat_h5files/Cooccurrences.json
+  apply_mask_percentage: 1.0
+  clips_directory: Dataset/polarbears_h5files/clips/
+  cooccurrences_filepath: Dataset/polarbears_h5files/Cooccurrences.json
   is_override: true
-  mask_path: Dataset/meerkat_h5files/masks/meerkat_masks.pkl
+  mask_path: Dataset/polarbears_h5files/masks/PB_masks.pkl
   mode: positive_negative
-  num_frames: 10
+  num_frames: 5
   override_value: 5000
   total_frames: 20
-  transformations:
-  - random_resized_crop
-  - horizontal_flip
-  - gaussian_blur
-  - color_jitter
+  transformations: null
   zfill_num: 4
 model_details:
   dino_model_name: facebook/dinov2-small
   dropout_rate: 0.1
-  embedding_dim: 3
+  embedding_dim: 384
   flatten_channels: false
   freeze_image_model: true
   latent_dim: 384
@@ -28,22 +24,22 @@ model_details:
   num_tf_layers: 2
   output_dim: 384
   raw_input_dim: null
-  use_embeddings: false
-  use_raw_input: true
+  use_embeddings: true
+  use_raw_input: false
 training_details:
-  accumulation_steps: 5
+  accumulation_steps: 1
   anchor_dino_model: null
   anchor_function_details:
     similarity_measure: euclidean_distance
     type: hard
-  batch_size: 6
+  batch_size: 30
   clip_value: null
   criterion_details:
     margin: 1.0
     name: triplet_margin_loss
     p: 2
-  epochs: 1
-  log_directory: results/hyperparameter_search/rovf_perc/50_50/1_fps/aug/
+  epochs: 10
+  log_directory: results/full_model_training/rovf_s_af_mask_0p5_no_aug_fps_polarbear/
   optimizer_details:
     lr: 0.0001
     name: adamw

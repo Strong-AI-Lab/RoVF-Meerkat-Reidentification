@@ -1,15 +1,19 @@
 dataloader_details:
   K: 20
-  apply_mask_percentage: 0.5
+  apply_mask_percentage: 1.0
   clips_directory: Dataset/meerkat_h5files/clips/
   cooccurrences_filepath: Dataset/meerkat_h5files/Cooccurrences.json
   is_override: true
-  mask_path: Dataset/meerkat_h5files/masks/meerkat_masks.pkl
+  mask_path: ''
   mode: positive_negative
-  num_frames: 10
+  num_frames: 5
   override_value: 5000
   total_frames: 20
-  transformations: null
+  transformations:
+  - random_resized_crop
+  - horizontal_flip
+  - gaussian_blur
+  - color_jitter
   zfill_num: 4
 model_details:
   dino_model_name: facebook/dinov2-small
@@ -39,8 +43,8 @@ training_details:
     margin: 1.0
     name: triplet_margin_loss
     p: 2
-  epochs: 1
-  log_directory: results/hyperparameter_search/rovf_emb_spatial_temporal/50_50/1_fps/no_aug/
+  epochs: 10
+  log_directory: results/full_model_training/rovf_s_af_st_no_mask_0p5_aug_fps_meerkat/
   optimizer_details:
     lr: 0.0001
     name: adamw

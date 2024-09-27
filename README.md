@@ -92,7 +92,7 @@ https://github.com/user-attachments/assets/96c3898b-8fd6-4577-b637-33da5c7a01dd
 
 Most of the code for reidentification can be run through `main.py`. For training a model use `CUDA_VISIBLE_DEVICES=0 python main.py train yml_filepath.yml -d [cuda|cpu]` (choose one of 'cuda' or 'cpu' for device to run on, and replace the CUDA_VISIBLE_DEVICES number with the appropriate number; the latter can be ommitted if using cpu only). To get the embeddings and evaluation metrics for a model the script `get_emb_and_metrics.sh` is used (note that you have to manually edit the file with correct checkpoint paths).
 
-Run `python generate_yml.py` to generate all yaml files used for trianing and the appropriate file structure in the results folder to be created.
+Run `python generate_yml.py` to generate all yaml files used for training; the appropriate file structure in results/ is also created.
 
 To replicate the pre-trained DINOv2 model results in the paper, run `evaluation/get_dino_embeddings.sh`, then run `python get_metrics.py` to get the metric results for the pre-trained DINOv2 embeddings.
 
