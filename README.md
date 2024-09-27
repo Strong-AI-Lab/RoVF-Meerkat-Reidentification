@@ -31,12 +31,15 @@ We are still updating this repository, and in particular, we plan to make the fo
 
 ## Installation
 
-To set up the environment, you can use the provided `setup_environment.py` script. This will install the necessary dependencies and configurations.
+In your environment of choice (conda is preferred) you will need to install the following packages. Most can be installed with the provided `install_packages.sh` script, but others will need to be installed manually. A Python version that mathces your PyTorch version is necessary, e.g., Python 3.11. 
+
+Fist you will need to install PyTorch version 2.0 or greater. You can follow the instructions here: [https://pytorch.org/get-started/locally/](https://pytorch.org/get-started/locally/)
+
+Then run the following bash script `install_packages.sh` to install all other required packages via pip (note that this script is set up for a conda environment). 
 
 ```bash
-python setup_environment.py
+./install_packages.sh conda-env-name-or-path
 ```
-
 
 ## Downloading the datasets
 For our experiments, we use two animal video datasets:
@@ -87,30 +90,54 @@ https://github.com/user-attachments/assets/96c3898b-8fd6-4577-b637-33da5c7a01dd
 
 *Example video of incorrect (red), correct (green), and correct top-3 (blue) re-identifications of a query clip (left-most column) using the best RoVF model. The embedding distance between the query and gallery clip is shown underneath each thumbnail. The embeddings are based on the masked clips and displayed unmasked.*
 
-*TODO: Add instructions how to use the code
+Most of the code for reidentification can be run through `main.py`. For training a model use `CUDA_VISIBLE_DEVICES=0 python main.py train yml_filepath.yml -d [cuda|cpu]` (choose one of 'cuda' or 'cpu' for device to run on, and replace the CUDA_VISIBLE_DEVICES number with the appropriate number; the latter can be ommitted if using cpu only). To get the embeddings and evaluation metrics for a model the script `get_emb_and_metrics.sh` is used (note that you have to manually edit the file with correct checkpoint paths).
 
+Run `python generate_yml.py` to generate all yaml files used for trianing and the appropriate file structure in the results folder to be created.
 
+To replicate the pre-trained DINOv2 model results in the paper, run `evaluation/get_dino_embeddings.sh`, then run `python get_metrics.py` to get the metric results for the pre-trained DINOv2 embeddings.
+
+The command line arguments for `main.py` are as follows:
+
+- `mode` (`str`): Mode to run the script in. Options: `train`, `test`, `get_metrics`, `get_embeddings`.
+- `yaml_path` (`str`): Path to the YAML configuration file.
+- `-d, --device` (`str`, default=`"cpu"`): Device to run on (e.g., `cuda`).
+- `-cp, --ckpt_path` (`str`, default=`""`): Checkpoint path for resuming training.
+- `-m, --mask_path` (`str`, default=`None`): Path to dataset masks (pickle file).
+- `-am, --apply_mask_percentage` (`float`, default=`1.0`): Percentage of masks to apply.
+- `-o, --override_value` (`int`, default=`None`): Value to override the number of frames.
+- `-is, --is_override` (`bool`, default=`False`): Set to `True` to override the number of frames.
+- `-z, --zfill_num` (`int`, default=`4`): Number of zeros to pad the frame number with.
+- `-tf, --total_frames` (`int`, default=`20`): Total frames in a clip.
+- `-K, --K` (`int`, default=`20`): Number of clips to sample.
+- `-nf, --num_frames` (`int`, default=`10`): Number of frames to sample from each clip.
+- `-dlm, --dlmode` (`str`, default=`"Test"`): Script mode (e.g., `Test`).
+- `-cd, --clips_directory` (`str`, default=`"Dataset/meerkat_h5files/clips/Test"`): Directory containing clips.
+- `-co, --cooccurrences_filepath` (`str`, default=`"Dataset/meerkat_h5files/Cooccurrences.json"`): Path to cooccurrences file.
+- `-ep, --embedding_path` (`str`, default=`None`): Path for saving or loading embeddings.
+- `-df, --dataframe_path` (`str`, default=`"Dataset/meerkat_h5files/Precomputed_test_examples_meerkat.csv"`): Path to the dataframe.
+- `-lnev, --ln_epsilon_value` (`float`, default=`None`): LayerNorm epsilon value.
 
 
 ## Folder Structure
 
-- **augmentations/:** Contains augmentation functions used for enhancing the training data. These functions improve model robustness by generating variations of the input images.
+Main files:
+- **augmentations/:** Contains helper augmentation functions to be used by a dataset class.
 
-- **dataloaders/:** Data loaders for efficiently fetching and preparing data during training and inference. This directory defines how the data pipeline is structured.
+- **dataloaders/:** Contains dataloaders used to process and load data for training/testing. 
 
-- **evaluation/:** Scripts and utilities for evaluating the model performance, including metrics and visualizations. The results of the reidentification model are analyzed here.
+- **evaluation/:** Scripts and functions for evaluating model performance.
 
-- **figures/:** Contains generated figures and visualizations used to evaluate the performance and other aspects of the model.
+- **figures/:** Contains figures and animations.
 
-- **get_anchors/:** Code for obtaining "anchor" embeddings, which serve as reference points in the reidentification task.
+- **get_anchors/:** Code for obtaining "anchor" embeddings, e.g., hard sampling for triplets.
 
-- **lr_schedulers/:** Learning rate scheduler configurations and implementations, designed to dynamically adjust the learning rate during training.
+- **lr_schedulers/:** Learning rate scheduler functions.
 
-- **models/:** Code defining the architectures of various neural network models used in the project, including pre-trained or custom models for the reidentification task.
+- **models/:** Model architectures are stored here.
 
-- **training_functions/:** Core functions required to train the models, including loss functions, optimization routines, and data pre-processing steps.
+- **training_functions/:** Training, validation, and support functions related to training models.
 
-- **training_scripts/exp_metadata/:** Contains scripts and experiment metadata for training different image-based models. Useful for reproducing experiments and comparing results.
+- **training_scripts/exp_metadata/:** Contains yaml (.yml) files with model, dataloader, and other training details.
 
 Other files:
 - **Figures.ipynb:** Juypter notebook containing the code used to generate figures in the paper and supplementary material.

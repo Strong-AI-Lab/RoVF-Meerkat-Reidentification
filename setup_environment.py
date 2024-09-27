@@ -2,14 +2,6 @@ import subprocess
 import os
 import argparse
 
-# Environment name, Python version, and custom install path
-env_name = "my_custom_env"
-python_version = "3.11.8"
-install_path = "/path/to/install/location"  # Change this to your desired path
-
-# Full path to the custom environment
-env_path = os.path.join(install_path, env_name)
-
 # Conda packages
 conda_packages = [
     "_libgcc_mutex=0.1=main",

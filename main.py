@@ -83,7 +83,6 @@ def main():
     parser.add_argument("mode", type=str, choices=["train","test", "get_metrics", "get_embeddings"], help="The mode to run the script in. Allowed values: train, test.")
     parser.add_argument("yaml_path", type=str, help="Path to a yaml file specifying important details for this script.")
     parser.add_argument("-d", "--device", default="cpu", type=str, help="The device to run the script on. Default: cuda.")
-    #parser.add_argument("-ce", "--current_epoch", default=0, type=int, help="If resuming training, insert the current epoch to resume training from.")
     parser.add_argument("-cp", "--ckpt_path", default="", type=str, help="If resuming training, load previous model weights from this checkpoint.")
     parser.add_argument("-m", "--mask_path", default=None, type=str, help="Path to a pickle file containing masks for the dataset.")
     parser.add_argument("-am", "--apply_mask_percentage", default=1.0, type=float, help="The percentage of masks to apply to the dataset. Default: 1.0.")
@@ -100,7 +99,6 @@ def main():
     parser.add_argument("-df", "--dataframe_path", default="Dataset/meerkat_h5files/Precomputed_test_examples_meerkat.csv", type=str, help="The path to the dataframe to load.")
     parser.add_argument("-lnev", "--ln_epsilon_value", default=None, type=float, help="The value to set the LayerNorm epsilon")
     parser.add_argument("-nan", "--detect_nan", default=False, type=bool, help="Detect NaN values in the model.")
-    #parser.add_argument("-adino", "--anchor_dino_model", default=None, type=str, help="The DINO model to use for the anchor function. Default: None.")
 
     # Parse the arguments
     args = parser.parse_args()
@@ -108,23 +106,9 @@ def main():
     # Access the arguments
     mode = args.mode
     yaml_path = args.yaml_path
-    #current_epoch = args.current_epoch
     ckpt_path = args.ckpt_path
     device = args.device
 
-    #print(f"args.dlmode: {args.dlmode}")
-    
-    #mask_path = args.mask_path
-    #apply_mask_percentage = args.apply_mask_percentage
-    #override_value = args.override_value
-    #is_override = args.is_override
-    #zfill_num = args.zfill_num
-    #total_frames = args.total_frames
-    #K = args.K
-    #num_frames = args.num_frames
-    #dlmode = args.dlmode
-    #clips_directory = args.clips_directory
-    #cooccurrences_filepath = args.cooccurrences_filepath
 
     if mode == "train":
         # Process the yaml file
@@ -144,8 +128,6 @@ def main():
         get_emb(args)
 
     elif mode == "get_metrics":
-        #assert ckpt_path != "" and ckpt_path is not None, "Need a checkpoint path to load the model."
-        #assert args.embedding_path != "" and args.embedding_path is not None, "Need a path to the embeddings."
         if args.embedding_path == "" or args.embedding_path is None:
             assert ckpt_path != "" and ckpt_path is not None, "Need a checkpoint path to load the model."
             print(f"Embedding path not provided. Will load embeddings from {ckpt_path[:-3] + '_embeddings.pkl'}")
