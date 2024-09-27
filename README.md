@@ -23,11 +23,9 @@ We are still updating this repository, and in particular, we plan to make the fo
 * Improve this README. 
 * Add segmentation evaluation code.
 * Add some improvements to the segmentation code and documentation.
-* Fix installation: some packages are not installed correctly.
-* Upload all training yaml files.
 * Update comments/documentation for all files.
-* Add instructions on how to run the re-identification main.py through the command line.
-* Generate_yml.py should be updated to create all yaml file documents as well as results/ folder structure.
+* dinov2_wrapper.py bug with concat functionality needs to be fixed (results in an error currently). 
+* training_scripts/val.py: getting the top-1 and top-3 accuracy has a bug that needs to be fixed (results in an error currently).
 
 ## Installation
 
