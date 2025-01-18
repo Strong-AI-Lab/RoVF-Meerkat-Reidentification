@@ -1298,6 +1298,8 @@ def create_full_model_training():
         "results/full_model_training/bioclip_polarbear/",
         "results/full_model_training/imagedino_s_meerkat/",
         "results/full_model_training/imagedino_s_polarbear/",
+        "results/full_model_training/imagedino_b_meerkat/",
+        "results/full_model_training/imagedino_b_polarbear/",
         "results/full_model_training/megadescriptor_b_meerkat/",
         "results/full_model_training/megadescriptor_b_polarbear/",
         "results/full_model_training/megadescriptor_l_meerkat/",
