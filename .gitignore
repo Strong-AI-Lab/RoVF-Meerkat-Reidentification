@@ -10,3 +10,5 @@
 *.txt
 *.eps
 *.exe
+*RViT_wrapper.py
+*RViT.py

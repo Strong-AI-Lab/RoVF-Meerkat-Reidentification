@@ -32,9 +32,9 @@ training_details:
     name: adamw
     weight_decay: 0.01
   scheduler_details:
-    decay_steps: 4750
+    decay_steps: 855
     end_lr: 0.0001
     max_lr: 0.005
     name: warmup_cosine_decay_scheduler
     start_lr: 0.001
-    warmup_steps: 250
+    warmup_steps: 45

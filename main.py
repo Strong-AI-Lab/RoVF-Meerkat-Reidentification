@@ -44,7 +44,7 @@ def get_emb(args):
         clips_directory=args.clips_directory, num_frames=args.num_frames, mode="Test", K=args.K, 
         total_frames=args.total_frames, zfill_num=args.zfill_num, is_override=False, 
         override_value=None, masks=masks, apply_mask_percentage=args.apply_mask_percentage, 
-        device=args.device
+        device=args.device, img_maj_vot=args.img_maj_vote
     )
 
     # remove .pt from ckpt_path and add _embeddings.pkl
@@ -65,7 +65,7 @@ def get_metrics(args):
     df = pd.read_csv(args.dataframe_path)
     
     # Get metrics for all models
-    metrics = get_metrics(models, df)
+    metrics = get_metrics(models, df, args.img_maj_vote)
     
     # Print the results
     for i, (top1, top3, unique_top3) in enumerate(metrics):
@@ -99,6 +99,7 @@ def main():
     parser.add_argument("-df", "--dataframe_path", default="Dataset/meerkat_h5files/Precomputed_test_examples_meerkat.csv", type=str, help="The path to the dataframe to load.")
     parser.add_argument("-lnev", "--ln_epsilon_value", default=None, type=float, help="The value to set the LayerNorm epsilon")
     parser.add_argument("-nan", "--detect_nan", default=False, type=bool, help="Detect NaN values in the model.")
+    parser.add_argument("-imv", "--img_maj_vote", default=False, type=bool, help="Use image majority voting. Default: False.")
 
     # Parse the arguments
     args = parser.parse_args()
@@ -302,6 +303,73 @@ def train(yaml_dict, device, ckpt_path):
                 "dropout_rate": 0.0
             }
             anchor_model = anchor_model_load_helper(**config2)
+    elif yaml_dict["model_details"]["model_type"].lower() == "lstm":
+        from models.recurrent_wrapper import RecurrentWrapper
+        from training_functions.load_model_helper import LSTM_model_load as model_load_helper
+        from training_functions.load_model_helper import dino_model_load as anchor_model_load_helper
+        from training_functions.dataloader_helper import dataloader_creation as get_dataloader
+        from get_anchors.anchor_fn import anchor_fn_hard, anchor_fn_hard_rand_anchor, anchor_fn_semi_hard
+
+        perc_config = {
+            "embedding_dim": yaml_dict["model_details"]["embedding_dim"],
+            "latent_dim": yaml_dict["model_details"]["latent_dim"],
+            "num_tf_layers": yaml_dict["model_details"]["num_tf_layers"],
+            "output_dim": yaml_dict["model_details"]["output_dim"]
+        }
+
+        config = {
+            "perceiver_config": perc_config,
+            "dino_model_name": yaml_dict["model_details"]["dino_model_name"],
+            "dropout_rate": yaml_dict["model_details"]["dropout_rate"],
+            "freeze_image_model": yaml_dict["model_details"]["freeze_image_model"],
+            "is_append_avg_emb": yaml_dict["model_details"]["is_append_avg_emb"] if "is_append_avg_emb" in yaml_dict["model_details"].keys() else False
+        }
+        model = model_load_helper(**config)
+
+        if yaml_dict["training_details"]["anchor_dino_model"] is not None:
+            config2 = {
+                "dino_model_name": yaml_dict["training_details"]["anchor_dino_model"],
+                "output_dim": None,
+                "forward_strat": "average",
+                "sequence_length": None,
+                "num_frames": yaml_dict["dataloader_details"]["num_frames"],
+                "dropout_rate": 0.0
+            }
+            anchor_model = anchor_model_load_helper(**config2)
+
+    elif yaml_dict["model_details"]["model_type"].lower() == "gru":
+        from models.recurrent_wrapper import RecurrentWrapper
+        from training_functions.load_model_helper import GRU_model_load as model_load_helper
+        from training_functions.load_model_helper import dino_model_load as anchor_model_load_helper
+        from training_functions.dataloader_helper import dataloader_creation as get_dataloader
+        from get_anchors.anchor_fn import anchor_fn_hard, anchor_fn_hard_rand_anchor, anchor_fn_semi_hard
+
+        perc_config = {
+            "embedding_dim": yaml_dict["model_details"]["embedding_dim"],
+            "latent_dim": yaml_dict["model_details"]["latent_dim"],
+            "num_tf_layers": yaml_dict["model_details"]["num_tf_layers"],
+            "output_dim": yaml_dict["model_details"]["output_dim"]
+        }
+
+        config = {
+            "perceiver_config": perc_config,
+            "dino_model_name": yaml_dict["model_details"]["dino_model_name"],
+            "dropout_rate": yaml_dict["model_details"]["dropout_rate"],
+            "freeze_image_model": yaml_dict["model_details"]["freeze_image_model"],
+            "is_append_avg_emb": yaml_dict["model_details"]["is_append_avg_emb"] if "is_append_avg_emb" in yaml_dict["model_details"].keys() else False
+        }
+        model = model_load_helper(**config)
+
+        if yaml_dict["training_details"]["anchor_dino_model"] is not None:
+            config2 = {
+                "dino_model_name": yaml_dict["training_details"]["anchor_dino_model"],
+                "output_dim": None,
+                "forward_strat": "average",
+                "sequence_length": None,
+                "num_frames": yaml_dict["dataloader_details"]["num_frames"],
+                "dropout_rate": 0.0
+            }
+            anchor_model = anchor_model_load_helper(**config2)
 
     elif yaml_dict["model_details"]["model_type"] == "recurrent_decoder":
         from models.recurrent_decoder import RecurrentDecoder
@@ -340,6 +408,62 @@ def train(yaml_dict, device, ckpt_path):
         from training_functions.dataloader_helper import dataloader_creation as get_dataloader
         from training_functions.load_model_helper import image_model_load
         model = image_model_load(yaml_dict["model_details"]["model_type"], yaml_dict["model_details"]["embedding_dim"], training=True)
+    
+    elif yaml_dict["model_details"]["model_type"] == "timesformer":
+        from models.TimeSformer_wrapper import TimeSformerWrapper
+        from training_functions.dataloader_helper import dataloader_creation as get_dataloader
+        from get_anchors.anchor_fn import anchor_fn_hard, anchor_fn_hard_rand_anchor, anchor_fn_semi_hard
+        from training_functions.load_model_helper import timesformer_model_load as model_load_helper
+        config = {
+            "model_name": yaml_dict["model_details"]["model_name"],
+            "output_dim": yaml_dict["model_details"]["output_dim"],
+            "dropout_rate": yaml_dict["model_details"]["dropout_rate"]
+        }
+        model = model_load_helper(**config)
+
+    elif yaml_dict["model_details"]["model_type"] == "vivit":
+        from models.ViViT_wrapper import ViViTWrapper
+        from training_functions.dataloader_helper import dataloader_creation as get_dataloader
+        from get_anchors.anchor_fn import anchor_fn_hard, anchor_fn_hard_rand_anchor, anchor_fn_semi_hard
+        from training_functions.load_model_helper import vivit_model_load as model_load_helper
+        config = {
+            "model_name": yaml_dict["model_details"]["model_name"],
+            "output_dim": yaml_dict["model_details"]["output_dim"],
+            "dropout_rate": yaml_dict["model_details"]["dropout_rate"]
+        }
+        model = model_load_helper(**config)
+
+    elif yaml_dict["model_details"]["model_type"] == "bioclip":
+        from models.bioCLIP_wrapper import BioCLIPVideoWrapper
+        from training_functions.dataloader_helper import dataloader_creation as get_dataloader
+        from get_anchors.anchor_fn import anchor_fn_hard, anchor_fn_hard_rand_anchor, anchor_fn_semi_hard
+        from training_functions.load_model_helper import bioclip_model_load as model_load_helper
+        config = {
+            "model_name": yaml_dict["model_details"]["model_name"],
+            "output_dim": yaml_dict["model_details"]["output_dim"],
+            "forward_strat": yaml_dict["model_details"]["forward_strat"],
+            "sequence_length": yaml_dict["model_details"]["sequence_length"],
+            "num_frames": yaml_dict["model_details"]["num_frames"],
+            "dropout_rate": yaml_dict["model_details"]["dropout_rate"],
+            "checkpoint_path": yaml_dict["model_details"]["checkpoint_path"]
+        }
+        model = model_load_helper(**config)
+
+    elif yaml_dict["model_details"]["model_type"] == "megadescriptor":
+        from models.MegaDescriptor_wrapper import MegaDescriptorVideoWrapper
+        from training_functions.dataloader_helper import dataloader_creation as get_dataloader
+        from get_anchors.anchor_fn import anchor_fn_hard, anchor_fn_hard_rand_anchor, anchor_fn_semi_hard
+        from training_functions.load_model_helper import megadescriptors_model_load as model_load_helper
+        config = {
+            "model_name": yaml_dict["model_details"]["model_name"],
+            "output_dim": yaml_dict["model_details"]["output_dim"],
+            "forward_strat": yaml_dict["model_details"]["forward_strat"],
+            "sequence_length": yaml_dict["model_details"]["sequence_length"],
+            "num_frames": yaml_dict["model_details"]["num_frames"],
+            "dropout_rate": yaml_dict["model_details"]["dropout_rate"],
+            "checkpoint_path": yaml_dict["model_details"]["checkpoint_path"]
+        }
+        model = model_load_helper(**config)
     else:
         raise ValueError("Invalid model type.")
 
@@ -460,6 +584,9 @@ def train(yaml_dict, device, ckpt_path):
         accumulation_steps=yaml_dict["training_details"]["accumulation_steps"] if "accumulation_steps" in yaml_dict["training_details"] else 1,
         margin=yaml_dict["training_details"]["criterion_details"]["margin"],
     )
+    #TODO: pad with zeros to make the number of frames equal to 32 (or a divisor of 8?)
+    # ViViT is 32
+    # TimeSformer is a divisor of 8
 
 if __name__ == "__main__":
     main()

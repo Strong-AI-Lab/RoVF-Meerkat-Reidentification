@@ -1,0 +1,46 @@
+dataloader_details:
+  K: 20
+  apply_mask_percentage: 1.0
+  clips_directory: Dataset/polarbears_h5files/clips/
+  cooccurrences_filepath: Dataset/polarbears_h5files/Cooccurrences.json
+  is_override: true
+  mask_path: Dataset/polarbears_h5files/masks/PB_masks.pkl
+  mode: positive_negative
+  num_frames: 1
+  override_value: 5000
+  total_frames: 20
+  transformations: null
+  zfill_num: 4
+model_details:
+  model_type: megadescriptor
+  model_name: hf-hub:BVRA/MegaDescriptor-T-224
+  output_dim: 384
+  forward_strat: cls
+  sequence_length: null
+  num_frames: 1
+  dropout_rate: 0.1
+  checkpoint_path: null
+training_details:
+  anchor_model: null
+  anchor_function_details:
+    similarity_measure: euclidean_distance
+    type: hard
+  batch_size: 64
+  clip_value: null
+  criterion_details:
+    margin: 1.0
+    name: triplet_margin_loss
+    p: 2
+  epochs: 50
+  log_directory: results/full_model_training/megadescriptor_t_polarbear/
+  optimizer_details:
+    lr: 0.0001
+    name: adamw
+    weight_decay: 0.01
+  scheduler_details:
+    decay_steps: 3752
+    end_lr: 0.0001
+    max_lr: 0.005
+    name: warmup_cosine_decay_scheduler
+    start_lr: 0.001
+    warmup_steps: 198

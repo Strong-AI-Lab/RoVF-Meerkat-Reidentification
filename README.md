@@ -24,8 +24,6 @@ We are still updating this repository, and in particular, we plan to make the fo
 * Add segmentation evaluation code.
 * Add some improvements to the segmentation code and documentation.
 * Update comments/documentation for all files.
-* dinov2_wrapper.py bug with concat functionality needs to be fixed (results in an error currently). 
-* training_scripts/val.py: getting the top-1 and top-3 accuracy has a bug that needs to be fixed (results in an error currently).
 
 ## Installation
 

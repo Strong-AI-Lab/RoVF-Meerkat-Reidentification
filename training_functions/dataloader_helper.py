@@ -26,7 +26,7 @@ def dataloader_creation(
     transformations=["random_resized_crop", "horizontal_flip", "gaussian_blur", "color_jitter"],
     cooccurrences_filepath=None, clips_directory=None, num_frames=10, mode="positive_negative",
     K=20, total_frames=20, zfill_num=4, is_override=False, override_value=None, masks=None, 
-    apply_mask_percentage=1.0, device="cpu"
+    apply_mask_percentage=1.0, device="cpu", num_workers=4
 ):
 
     batch_size = 1 # This is fixed. 
@@ -57,7 +57,7 @@ def dataloader_creation(
         is_override=is_override, override_value=override_value, masks=masks,
         apply_mask_percentage=apply_mask_percentage, device=device
     )
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=4)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
     # note: a non-1 batch size will result in an error. 
 
     return dataloader

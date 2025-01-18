@@ -39,7 +39,7 @@ import argparse
 def get_embeddings(
     model_ckpt, transformations, cooccurrences_filepath, clips_directory, 
     num_frames, mode, K, total_frames, zfill_num, is_override, override_value, 
-    masks, apply_mask_percentage, device
+    masks, apply_mask_percentage, device, img_maj_vote=False
 ):
     
      # load ckpt here  
@@ -49,6 +49,7 @@ def get_embeddings(
     
     num_frames = mdata['dataloader_details']["num_frames"] if "num_frames" in mdata['dataloader_details'].keys() else num_frames
     print(f"num_frames: {num_frames}")
+    print(f"img_maj_vote: {img_maj_vote}")
 
     dataloader = dataloader_creation(
         transformations=transformations, cooccurrences_filepath=cooccurrences_filepath, 
@@ -66,17 +67,40 @@ def get_embeddings(
     embeddings = {}
     for i, (path, data) in enumerate(dataloader):
         with torch.no_grad():
-            output = model(data.to(device))
-            if isinstance(output, tuple) or isinstance(output, list):
-                output = output[-1]
-            if len(output.size()) == 1:
-                embeddings[path[0]] = output
-            elif len(output.size()) == 2: # batch processing
-                assert len(path) == output.size(0)
-                for j in range(output.size(0)):
-                    embeddings[path[j]] = output[j]
+            if img_maj_vote:
+                output = []
+                for frame_idx in range(data.size(1)):  # assuming data is of shape (batch_size, num_frames, channels, height, width)
+                    frame_data = data[:, frame_idx, :, :, :].to(device)
+                    frame_output = model(frame_data)
+                    output.append(frame_output)
+                # [frames][batch_size, output_dim] or [frames][output_dim]
             else:
-                raise Exception(f"output size not recognized: {output.size()}")
+                output = model(data.to(device))
+
+            if isinstance(output, tuple) or isinstance(output, list) and not img_maj_vote:
+                output = output[-1]
+            # if img_maj_vote, output is already in the correct format and we don't need to do anything
+            
+            if not img_maj_vote:
+                if len(output.size()) == 1:
+                    embeddings[path[0]] = output
+                elif len(output.size()) == 2: # batch processing
+                    assert len(path) == output.size(0)
+                    for j in range(output.size(0)):
+                        embeddings[path[j]] = output[j]
+                else:
+                    raise Exception(f"output size not recognized: {output.size()}")
+            else:  # img_maj_vote
+                if len(output[0].size()) == 1:  # Non-batch processing for img_maj_vote
+                    embeddings[path[0]] = output
+                elif len(output[0].size()) == 2:  # Batch processing for img_maj_vote
+                    for j in range(output[0].size(0)):
+                        embeddings[path[j]] = [output[k][j] for k in range(len(output))]
+                else:
+                    raise Exception(f"output size not recognized: {output[0].size()}")
+
+                        
+            
     print(f"len(embeddings): {len(embeddings)}")
     return embeddings
 

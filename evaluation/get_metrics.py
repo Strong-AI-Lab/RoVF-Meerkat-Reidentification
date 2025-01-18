@@ -2,6 +2,7 @@ import pickle
 import numpy as np
 import pandas as pd
 import os
+from collections import Counter
 
 def open_pickle(file_path):
     # Open the file in binary read mode
@@ -12,7 +13,7 @@ def open_pickle(file_path):
     return data
 
 def indices_of_smallest(distances, banned_idx):
-    #Sort indices and distances, ignoring the query
+    # Sort indices and distances, ignoring the query
     sorted_indices = np.argsort(distances)
     sorted_indices = sorted_indices[sorted_indices != banned_idx]
     sorted_distances = distances[sorted_indices]
@@ -40,15 +41,21 @@ def indices_of_smallest(distances, banned_idx):
 def compute_distances(embeddings):
     """Compute Euclidean distances between embeddings."""
     return np.sqrt(((embeddings[:, np.newaxis, :] - embeddings[np.newaxis, :, :]) ** 2).sum(axis=2))
-    
 
-def get_metrics(models, df):
+def majority_vote(ranks_list):
+    """Compute the majority vote from a list of ranks."""
+    vote_counts = Counter(ranks_list)
+    majority_rank = vote_counts.most_common(1)[0][0]
+    return majority_rank
+
+def get_metrics(models, df, img_maj_vote=False):
     """
     Compute top-1, top-3 accuracy and the number of unique elements for each model.
 
     Parameters:
     - models: List of embedding file paths.
     - df: DataFrame with test examples.
+    - img_maj_vote: Boolean indicating if majority vote should be used.
 
     Returns:
     - A list of metric results for each model: top-1 accuracy, top-3 accuracy, and unique top-3 counts.
@@ -75,25 +82,66 @@ def get_metrics(models, df):
             row_embeddings = []
             for i in row:
                 row_embeddings.append(m[i].cpu().numpy())
-            embeddings = np.stack(row_embeddings)
+            
+            if img_maj_vote:
+                # Handle the case where embeddings are lists of tensors
+                frame_embeddings = [np.stack([frame for frame in frames]) for frames in row_embeddings]
+                embeddings = np.stack(frame_embeddings)
+            else:
+                embeddings = np.stack(row_embeddings)
 
-            # Compute Euclidean distances between embeddings
-            distances = compute_distances(embeddings)
+            if img_maj_vote:
+                # Compute distances for each frame separately
+                frame_distances = []
+                for frame_idx in range(embeddings.shape[0]):
+                    frame_distances.append(compute_distances(embeddings[frame_idx]))
 
-            # Get indices of closest embeddings (excluding the query)
-            closest_indices_ranked_0 = indices_of_smallest(distances[0], 0)
-            closest_indices_ranked_1 = indices_of_smallest(distances[1], 1)
+                # Record results for each frame
+                frame_results = np.zeros((embeddings.shape[0], 2, 3))  # [frames, queries, metrics]
+                for frame_idx in range(embeddings.shape[0]):
+                    closest_indices_ranked_0 = indices_of_smallest(frame_distances[frame_idx][0], 0)
+                    closest_indices_ranked_1 = indices_of_smallest(frame_distances[frame_idx][1], 1)
 
-            for inc, ranks in enumerate([closest_indices_ranked_0, closest_indices_ranked_1]):
-                if ranks:
-                    # Top-1 accuracy
-                    if ranks[0] in [0, 1]:
-                        results[k, idx + inc, 0] = 1
-                    # Top-3 accuracy
-                    if 0 in ranks[:3] or 1 in ranks[:3]:
-                        results[k, idx + inc, 1] = 1
-                # Number of unique elements in top-3
-                results[k, idx + inc, 2] = len(ranks)
+                    for inc, ranks in enumerate([closest_indices_ranked_0, closest_indices_ranked_1]):
+                        if ranks:
+                            # Top-1 accuracy
+                            if ranks[0] in [0, 1]:
+                                frame_results[frame_idx, inc, 0] = 1
+                            # Top-3 accuracy
+                            if 0 in ranks[:3] or 1 in ranks[:3]:
+                                frame_results[frame_idx, inc, 1] = 1
+                            # Number of unique elements in top-3
+                            frame_results[frame_idx, inc, 2] = len(set(ranks[:3]))
+
+                # Compute majority vote for top-1 and top-3
+                top1_votes = frame_results[:, :, 0].flatten()
+                top3_votes = frame_results[:, :, 1].flatten()
+                unique_top3_counts = frame_results[:, :, 2].flatten()
+
+                majority_top1 = majority_vote(top1_votes)
+                majority_top3 = majority_vote(top3_votes)
+
+                results[k, idx, 0] = majority_top1
+                results[k, idx, 1] = majority_top3
+                results[k, idx, 2] = np.mean(unique_top3_counts)
+            else:
+                # Compute distances for the entire embeddings array
+                distances = compute_distances(embeddings)
+
+                # Get indices of closest embeddings (excluding the query)
+                closest_indices_ranked_0 = indices_of_smallest(distances[0], 0)
+                closest_indices_ranked_1 = indices_of_smallest(distances[1], 1)
+
+                for inc, ranks in enumerate([closest_indices_ranked_0, closest_indices_ranked_1]):
+                    if ranks:
+                        # Top-1 accuracy
+                        if ranks[0] in [0, 1]:
+                            results[k, idx + inc, 0] = 1
+                        # Top-3 accuracy
+                        if 0 in ranks[:3] or 1 in ranks[:3]:
+                            results[k, idx + inc, 1] = 1
+                    # Number of unique elements in top-3
+                    results[k, idx + inc, 2] = len(ranks)
 
         idx += 2
 
