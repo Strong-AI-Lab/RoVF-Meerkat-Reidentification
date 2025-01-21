@@ -51,32 +51,25 @@ choose_animal
 choose_device
 
 # Set paths based on the chosen animal
+read -p "Enter the checkpoint directory: " checkpoint_dir
+
 if [ "$animal" == "meerkat" ]; then
-    checkpoints=(
-        "/data/kkno604/github/RoVF-meerkat-reidentification/results/full_model_training/resnet18_meerkat/checkpoint_epoch_43.pt"
-        "/data/kkno604/github/RoVF-meerkat-reidentification/results/full_model_training/resnet50_meerkat/checkpoint_epoch_1.pt"
-        "/data/kkno604/github/RoVF-meerkat-reidentification/results/full_model_training/resnet152_meerkat/checkpoint_epoch_50.pt"
-        "/data/kkno604/github/RoVF-meerkat-reidentification/results/full_model_training/vgg-16_meerkat/checkpoint_epoch_4.pt"
-    )
     mask_file="Dataset/meerkat_h5files/masks/meerkat_masks.pkl"
     dataset_file="Dataset/meerkat_h5files/Precomputed_test_examples_meerkat.csv"
     cooccurrences_file="Dataset/meerkat_h5files/Cooccurrences.json"
     clips_directory="Dataset/meerkat_h5files/clips/Test/"
 elif [ "$animal" == "polarbear" ]; then
-    checkpoints=(
-        "/data/kkno604/github/RoVF-meerkat-reidentification/results/full_model_training/resnet18_polarbear/checkpoint_epoch_41.pt"
-        "/data/kkno604/github/RoVF-meerkat-reidentification/results/full_model_training/resnet50_polarbear/checkpoint_epoch_1.pt"
-        "/data/kkno604/github/RoVF-meerkat-reidentification/results/full_model_training/resnet152_polarbear/checkpoint_epoch_50.pt"
-        "/data/kkno604/github/RoVF-meerkat-reidentification/results/full_model_training/vgg-16_polarbear/checkpoint_epoch_2.pt"
-    )
     mask_file="Dataset/polarbears_h5files/masks/PB_masks.pkl"
     dataset_file="Dataset/polarbears_h5files/Precomputed_test_examples_PB.csv"
     cooccurrences_file="Dataset/polarbears_h5files/Cooccurrences.json"
     clips_directory="Dataset/polarbears_h5files/clips/Test/"
 fi
 
+# Find all .pt files in the checkpoint directory recursively
+checkpoints=$(find "$checkpoint_dir" -type f -name "*.pt")
+
 # Loop over each checkpoint and run the command with and without the mask
-for cp in "${checkpoints[@]}"; do
+for cp in $checkpoints; do
     echo "Running with mask for checkpoint: $cp"
     python main.py test '' -cp "$cp" -df "$dataset_file" -d "$device" -m "$mask_file" -cd "$clips_directory" -co "$cooccurrences_file"
     

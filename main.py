@@ -44,7 +44,7 @@ def get_emb(args):
         clips_directory=args.clips_directory, num_frames=args.num_frames, mode="Test", K=args.K, 
         total_frames=args.total_frames, zfill_num=args.zfill_num, is_override=False, 
         override_value=None, masks=masks, apply_mask_percentage=args.apply_mask_percentage, 
-        device=args.device, img_maj_vot=args.img_maj_vote
+        device=args.device, img_maj_vote=args.img_maj_vote
     )
 
     # remove .pt from ckpt_path and add _embeddings.pkl

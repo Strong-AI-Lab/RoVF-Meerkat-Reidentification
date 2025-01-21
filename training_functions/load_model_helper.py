@@ -313,7 +313,7 @@ def load_model_from_checkpoint(checkpoint_path: str):
             "latent_dim": convert_none_str_to_none(get_with_print(model_details, 'latent_dim', 384)),
             "num_heads": convert_none_str_to_none(get_with_print(model_details, 'num_heads', 12)),
             "num_latents": convert_none_str_to_none(get_with_print(model_details, 'num_latents', 512)),
-            "num_transformer_layers": convert_none_str_to_none(get_with_print(model_details, 'num_tf_layers', 2)),
+            "num_tf_layers": convert_none_str_to_none(get_with_print(model_details, 'num_tf_layers', 2)),
             "dropout": convert_none_str_to_none(get_with_print(model_details, 'dropout_rate', 0.1)),
             "output_dim": convert_none_str_to_none(get_with_print(model_details, 'output_dim', 384)),
             "use_raw_input": convert_none_str_to_none(get_with_print(model_details, 'use_raw_input', True)),
@@ -341,7 +341,7 @@ def load_model_from_checkpoint(checkpoint_path: str):
             "latent_dim": convert_none_str_to_none(get_with_print(model_details, 'latent_dim', 384)),
             "num_heads": convert_none_str_to_none(get_with_print(model_details, 'num_heads', 12)),
             "num_latents": convert_none_str_to_none(get_with_print(model_details, 'num_latents', 512)),
-            "num_transformer_layers": convert_none_str_to_none(get_with_print(model_details, 'num_tf_layers', 2)),
+            "num_tf_layers": convert_none_str_to_none(get_with_print(model_details, 'num_tf_layers', 2)),
             "dropout": convert_none_str_to_none(get_with_print(model_details, 'dropout_rate', 0.1)),
             "output_dim": convert_none_str_to_none(get_with_print(model_details, 'output_dim', 384)),
             "use_raw_input": convert_none_str_to_none(get_with_print(model_details, 'use_raw_input', True)),
@@ -403,25 +403,25 @@ def load_model_from_checkpoint(checkpoint_path: str):
         )
     elif model_type == "vivit":
         # Extract ViViT model specific parameters from YAML
-        vivit_model_name = convert_none_str_to_none(get_with_print(model_details, 'vivit_model_name', 'google/vivit-b-16x2-kinetics400'))
+        model_name = convert_none_str_to_none(get_with_print(model_details, 'model_name', 'google/vivit-b-16x2-kinetics400'))
         output_dim = convert_none_str_to_none(get_with_print(model_details, 'output_dim', None))
         dropout_rate = convert_none_str_to_none(get_with_print(model_details, 'dropout_rate', 0.1))
 
         # Call vivit_model_load with the extracted parameters
         model = vivit_model_load(
-            vivit_model_name=vivit_model_name, 
+            model_name=model_name, 
             output_dim=output_dim, 
             dropout_rate=dropout_rate
         )
     elif model_type == "timesformer":
         # Extract TimeSformer model specific parameters from YAML
-        timesformer_model_name = convert_none_str_to_none(get_with_print(model_details, 'timesformer_model_name', 'facebook/timesformer-base-finetuned-k400'))
+        model_name = convert_none_str_to_none(get_with_print(model_details, 'model_name', 'facebook/timesformer-base-finetuned-k400'))
         output_dim = convert_none_str_to_none(get_with_print(model_details, 'output_dim', None))
         dropout_rate = convert_none_str_to_none(get_with_print(model_details, 'dropout_rate', 0.1))
 
         # Call timesformer_model_load with the extracted parameters
         model = timesformer_model_load(
-            timesformer_model_name=timesformer_model_name, 
+            model_name=model_name, 
             output_dim=output_dim, 
             dropout_rate=dropout_rate
         )

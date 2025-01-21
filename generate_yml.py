@@ -1305,15 +1305,22 @@ def create_full_model_training():
         "results/full_model_training/megadescriptor_l_meerkat/",
         "results/full_model_training/megadescriptor_l_polarbear/",
         "results/full_model_training/megadescriptor_t_meerkat/",
-        "results/full_model_training/megadescriptor_t_polarbear/"
+        "results/full_model_training/megadescriptor_t_polarbear/",
+        "results/full_model_training/lstm_50_50_0p5_aug_meerkat/",
+        "results/full_model_training/lstm_50_50_0p5_aug_polarbear/",
+        "results/full_model_training/gru_50_50_0p5_no_aug_meerkat/",
+        "results/full_model_training/gru_50_50_0p5_no_aug_polarbear/",
+        "results/full_model_training/timesformer_no_mask_aug_meerkat/",
+        "results/full_model_training/timesformer_no_mask_aug_polarbear/",
+        "results/full_model_training/vivit_no_mask_aug_meerkat/",
+        "results/full_model_training/vivit_no_mask_aug_polarbear/"
+        
     ]
     for path in filepath_list:
         if not os.path.exists(path):
             os.makedirs(path)
 
 if __name__ == "__main__":
-    pass
-    # TODO: add argparse support to load all, a subset, or all of these.
     #create_yaml_config_dino()
     #create_yaml_config_RoVF_S()
     #create_yaml_config_RoVF_S_af()
