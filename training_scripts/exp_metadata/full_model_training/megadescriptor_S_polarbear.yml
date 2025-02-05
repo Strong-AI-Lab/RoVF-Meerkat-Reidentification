@@ -12,15 +12,16 @@ dataloader_details:
   transformations: null
   zfill_num: 4
 model_details:
-  dino_model_name: facebook/dinov2-base
-  dropout_rate: 0.1
-  forward_strat: cls
-  model_type: dino
-  num_frames: 1
+  model_type: megadescriptor
+  model_name: hf-hub:BVRA/MegaDescriptor-S-224
   output_dim: 384
+  forward_strat: cls
   sequence_length: null
+  num_frames: 1
+  dropout_rate: 0.1
+  checkpoint_path: null
 training_details:
-  anchor_dino_model: null
+  anchor_model: null
   anchor_function_details:
     similarity_measure: euclidean_distance
     type: hard
@@ -31,7 +32,7 @@ training_details:
     name: triplet_margin_loss
     p: 2
   epochs: 20
-  log_directory: results/full_model_training/imagedino_b_polarbear/
+  log_directory: results/full_model_training/megadescriptor_s_polarbear/
   optimizer_details:
     lr: 0.0001
     name: adamw

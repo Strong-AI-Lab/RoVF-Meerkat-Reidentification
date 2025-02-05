@@ -224,8 +224,32 @@ def cls_test(output_dim=None):
 
 def print_model_architecture():
     model_name = 'hf-hub:imageomics/bioclip'
-    model = BioCLIPVideoWrapper(model_name, output_dim=None, forward_strat="cls", sequence_length=None, num_frames=5, dropout_rate=0.0)
+    model = BioCLIPVideoWrapper(
+        model_name, output_dim=384, forward_strat="cls", 
+        sequence_length=None, num_frames=1, dropout_rate=0.0
+    )
     print(model)
+
+    for name, param in model.named_parameters():
+        param.requires_grad = False
+
+    # Unfreeze last two layers of visual transformer
+    for block in model.model.visual.transformer.resblocks[-2:]:
+        for param in block.parameters():
+            param.requires_grad = True
+
+    # Unfreeze final layers (linear, dropout)
+    for param in model.linear.parameters():
+        param.requires_grad = True
+
+    # Unfreeze ln_post layer
+    model.model.visual.ln_post.weight.requires_grad = True
+    model.model.visual.ln_post.bias.requires_grad = True
+
+    # print out .requires_grad for each parameter
+    for name, param in model.named_parameters():
+        print(f"{name}: {param.requires_grad}")
+
 
 if __name__ == "__main__":
     #forward_cat_test(output_dim=None)
@@ -233,9 +257,9 @@ if __name__ == "__main__":
     #forward_max_test(output_dim=None)
     #forward_cat_test(output_dim=50)
     #forward_avg_test(output_dim=50)
-    forward_max_test(output_dim=50)
+    #forward_max_test(output_dim=50)
 
-    cls_test(output_dim=None)
+    #cls_test(output_dim=None)
     #cls_test(output_dim=50)
 
     print_model_architecture()

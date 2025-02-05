@@ -66,7 +66,11 @@ def get_metrics(models, df, img_maj_vote=False):
     for m in models:
         dict_ = open_pickle(m)
         for key in dict_:
-            dict_[key] = dict_[key].to("cpu")
+            if isinstance(dict_[key], list):
+                for i in range(len(dict_[key])):
+                    dict_[key][i] = dict_[key][i].to("cpu")
+            else:
+                dict_[key] = dict_[key].to("cpu")
         data.append(dict_)
 
     print(f"len(data[0]): {len(data[0].keys())}")
@@ -79,15 +83,24 @@ def get_metrics(models, df, img_maj_vote=False):
     # Loop through each row in the dataframe
     for index, row in df.iterrows():
         for k, m in enumerate(data):
-            row_embeddings = []
-            for i in row:
-                row_embeddings.append(m[i].cpu().numpy())
+            
             
             if img_maj_vote:
+                row_embeddings = []
+                for i in row:
+                    row_embeddings.append([m[i][j].cpu().numpy() for j in range(len(m[i]))])
                 # Handle the case where embeddings are lists of tensors
+                #print(f"len(row_embeddings): {len(row_embeddings)}")
+                #print(f"len(row_embeddings[0]): {len(row_embeddings[0])}")
+                #print(f"row_embeddings[0].shape: {row_embeddings[0].shape}")
                 frame_embeddings = [np.stack([frame for frame in frames]) for frames in row_embeddings]
-                embeddings = np.stack(frame_embeddings)
+                embeddings = np.transpose(np.stack(frame_embeddings), (1, 0, 2))
+                #print(f"embeddings.shape: {embeddings.shape}") 
+                # examples, frames, embedding_dim without change of dimensions; frames, examples, embedding_dim with permute
             else:
+                row_embeddings = []
+                for i in row:
+                    row_embeddings.append(m[i].cpu().numpy())
                 embeddings = np.stack(row_embeddings)
 
             if img_maj_vote:
@@ -96,34 +109,27 @@ def get_metrics(models, df, img_maj_vote=False):
                 for frame_idx in range(embeddings.shape[0]):
                     frame_distances.append(compute_distances(embeddings[frame_idx]))
 
-                # Record results for each frame
-                frame_results = np.zeros((embeddings.shape[0], 2, 3))  # [frames, queries, metrics]
-                for frame_idx in range(embeddings.shape[0]):
-                    closest_indices_ranked_0 = indices_of_smallest(frame_distances[frame_idx][0], 0)
-                    closest_indices_ranked_1 = indices_of_smallest(frame_distances[frame_idx][1], 1)
-
-                    for inc, ranks in enumerate([closest_indices_ranked_0, closest_indices_ranked_1]):
+                # get top-1 and top-3 and unique in top-3 for majority vote over each frame
+                for img_idx in range(2):
+                    top1_votes = []
+                    top3_votes = []
+                    unique_candidates = set()
+                    for frame_dists in frame_distances:
+                        ranks = indices_of_smallest(frame_dists[img_idx], img_idx)
                         if ranks:
-                            # Top-1 accuracy
-                            if ranks[0] in [0, 1]:
-                                frame_results[frame_idx, inc, 0] = 1
-                            # Top-3 accuracy
-                            if 0 in ranks[:3] or 1 in ranks[:3]:
-                                frame_results[frame_idx, inc, 1] = 1
-                            # Number of unique elements in top-3
-                            frame_results[frame_idx, inc, 2] = len(set(ranks[:3]))
+                            top1_votes.append(ranks[0])
+                            top3_votes.append(1 if (0 in ranks[:3] or 1 in ranks[:3]) else 0)
+                            unique_candidates.update(ranks)
+                        else:
+                            top1_votes.append(None)
+                            top3_votes.append(0)
+                    valid_votes = [vote for vote in top1_votes if vote is not None]
+                    if valid_votes:
+                        majority_top1 = majority_vote(valid_votes)
+                        results[k, idx + img_idx, 0] = 1 if majority_top1 in [0, 1] else 0
+                    results[k, idx + img_idx, 1] = 1 if sum(top3_votes) > len(top3_votes) / 2 else 0
+                    results[k, idx + img_idx, 2] = len(unique_candidates)
 
-                # Compute majority vote for top-1 and top-3
-                top1_votes = frame_results[:, :, 0].flatten()
-                top3_votes = frame_results[:, :, 1].flatten()
-                unique_top3_counts = frame_results[:, :, 2].flatten()
-
-                majority_top1 = majority_vote(top1_votes)
-                majority_top3 = majority_vote(top3_votes)
-
-                results[k, idx, 0] = majority_top1
-                results[k, idx, 1] = majority_top3
-                results[k, idx, 2] = np.mean(unique_top3_counts)
             else:
                 # Compute distances for the entire embeddings array
                 distances = compute_distances(embeddings)
@@ -144,6 +150,8 @@ def get_metrics(models, df, img_maj_vote=False):
                     results[k, idx + inc, 2] = len(ranks)
 
         idx += 2
+
+    #print(f"results: {results}")
 
     # Collect and return average metrics for each model
     metrics = []
@@ -263,20 +271,20 @@ def get_dino_pretrained_results_polarbears():
 def main():
     # List of model embedding paths
     models = [
-        "/home/kkno604/github/meerkat-repos/RoVF-meerkat-reidentification/results/pretrained_dino_models/v2-small/cls_embeddings_max.pkl"
+        "/home/kkno604/github/meerkat-repos/RoVF-meerkat-reidentification/results/full_model_training/bioclip_meerkat/checkpoint_epoch_2_embeddings_mask.pkl"
     ]
     
     # Load dataframe of test examples
     df = pd.read_csv("/home/kkno604/github/meerkat-repos/RoVF-meerkat-reidentification/Dataset/meerkat_h5files/Precomputed_test_examples_meerkat.csv")
     
     # Get metrics for all models
-    metrics = get_metrics(models, df)
+    metrics = get_metrics(models, df, img_maj_vote=True)
     
     # Print the results
     for i, (top1, top3, unique_top3) in enumerate(metrics):
         print(f"Model {i}: Top-1 Accuracy: {top1}, Top-3 Accuracy: {top3}, Unique in Top-3: {unique_top3}")
 
 if __name__ == "__main__":
-    #main()
-    get_dino_pretrained_results_meerkat()
-    get_dino_pretrained_results_polarbears()
+    main()
+    #get_dino_pretrained_results_meerkat()
+    #get_dino_pretrained_results_polarbears()

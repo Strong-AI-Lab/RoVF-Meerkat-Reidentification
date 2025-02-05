@@ -181,17 +181,20 @@ def image_model_load(model_type, embed_dim, training=False):
     if "ResNet" in model_type:
         if training:
             # Freeze all the layers in the model
-            for param in model.parameters():
-                param.requires_grad = False
+            #for param in model.parameters():
+            #    param.requires_grad = False
+            for name, param in model.named_parameters():
+                if not (name.startswith("layer4") or name.startswith("avgpool") or name.startswith("fc")):
+                    param.requires_grad = False
         
         model.fc = nn.Sequential(nn.Linear(model.fc.in_features, 2048),nn.ReLU(),nn.Linear(2048,embed_dim))
 
         if training:
             init_weights(model.fc)
     else:
-        if training:
-            for param in model.features.parameters():
-                param.requires_grad = False
+        #if training:
+        #    for param in model.features.parameters():
+        #        param.requires_grad = False
 
         model.classifier = nn.Sequential(
             model.classifier[0], 
@@ -204,6 +207,13 @@ def image_model_load(model_type, embed_dim, training=False):
 
         if training:
             init_weights(model.classifier)
+            # Freeze all parameters except classifier, avgpool, and features[24:30]
+            for name, param in model.named_parameters():
+                if not (name.startswith("classifier") or name.startswith("avgpool") or name.startswith("features.24") or
+                        name.startswith("features.25") or name.startswith("features.26") or name.startswith("features.27") or
+                        name.startswith("features.28") or name.startswith("features.29") or name.startswith("features.30")):
+                    param.requires_grad = False
+            
     return model
 
 def load_model_from_checkpoint(checkpoint_path: str):
@@ -248,6 +258,23 @@ def load_model_from_checkpoint(checkpoint_path: str):
             num_frames=num_frames, 
             dropout_rate=dropout_rate
         )
+
+        if num_frames == 1:
+            # Freeze all parameters
+            for param in model.parameters(): # TODO load model functin.
+                param.requires_grad = False
+
+            # Unfreeze last two layers of the transformer encoder
+            for block in model.dino.encoder.layer[-2:]:
+                for param in block.parameters():
+                    param.requires_grad = True
+
+            # Unfreeze final layers (layernorm, linear, dropout)
+            for param in model.dino.layernorm.parameters():
+                param.requires_grad = True
+
+            for param in model.linear.parameters():
+                param.requires_grad = True
         
     elif model_type == 'recurrent' or model_type == "recurrent_perceiver":
         # Extract recurrent model specific parameters
@@ -381,6 +408,23 @@ def load_model_from_checkpoint(checkpoint_path: str):
             dropout_rate=dropout_rate, 
             checkpoint_path=checkpoint_path
         )
+
+        for name, param in model.named_parameters():
+            param.requires_grad = False
+
+        # Unfreeze last two layers of visual transformer
+        for block in model.model.visual.transformer.resblocks[-2:]:
+            for param in block.parameters():
+                param.requires_grad = True
+
+        # Unfreeze final layers (linear, dropout)
+        for param in model.linear.parameters():
+            param.requires_grad = True
+
+        # Unfreeze ln_post layer
+        model.model.visual.ln_post.weight.requires_grad = True
+        model.model.visual.ln_post.bias.requires_grad = True
+
     elif model_type == "megadescriptor":
         # Extract MegaDescriptor model specific parameters from YAML
         model_name = convert_none_str_to_none(get_with_print(model_details, 'model_name', 'hf-hub:BVRA/MegaDescriptor-T-224'))
@@ -401,6 +445,18 @@ def load_model_from_checkpoint(checkpoint_path: str):
             dropout_rate=dropout_rate, 
             checkpoint_path=checkpoint_path
         )
+
+        for name, param in model.named_parameters():
+            param.requires_grad = False
+
+        # Freeze all layers except for the last SwinTransformerStage (model.layers.3), norm, head, and linear layers
+        for name, param in model.named_parameters():
+            if (name.startswith("model.layers.3") or 
+                    name.startswith("model.norm") or 
+                    name.startswith("model.head") or 
+                    name.startswith("linear")):
+                param.requires_grad = True
+
     elif model_type == "vivit":
         # Extract ViViT model specific parameters from YAML
         model_name = convert_none_str_to_none(get_with_print(model_details, 'model_name', 'google/vivit-b-16x2-kinetics400'))
@@ -449,7 +505,7 @@ def load_model_from_checkpoint(checkpoint_path: str):
     
     return model
 
-if __name__ == "__main__": # TODO: test below
+if __name__ == "__main__":
     # test both models
     #dino_model = dino_model_load()
     #recurrent_model = recurrent_model_perceiver_load()

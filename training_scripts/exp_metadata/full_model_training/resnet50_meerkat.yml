@@ -12,29 +12,29 @@ dataloader_details:
   transformations: null
   zfill_num: 4
 model_details:
-  embedding_dim: 256
+  embedding_dim: 384
   model_type: ResNet50
 training_details:
   anchor_model: null
   anchor_function_details:
     similarity_measure: euclidean_distance
     type: hard
-  batch_size: 900
+  batch_size: 64
   clip_value: null
   criterion_details:
     margin: 1.0
     name: triplet_margin_loss
     p: 2
-  epochs: 50
+  epochs: 20
   log_directory: results/full_model_training/resnet50_meerkat/
   optimizer_details:
     lr: 0.0001
     name: adamw
     weight_decay: 0.01
   scheduler_details:
-    decay_steps: 855
+    decay_steps: 1485
     end_lr: 0.0001
     max_lr: 0.005
     name: warmup_cosine_decay_scheduler
     start_lr: 0.001
-    warmup_steps: 45
+    warmup_steps: 78

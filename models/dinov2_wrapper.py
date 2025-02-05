@@ -273,6 +273,34 @@ def cls_test_single_frame(output_dim):
             else:
                 print(f"No gradient computed for {name}")
 
+def print_model_architecture():
+    dino_model_name = 'facebook/dinov2-base'
+    model = DINOv2VideoWrapper(
+        dino_model_name, output_dim=384, forward_strat="cls", 
+        sequence_length=None, num_frames=1, dropout_rate=0.0
+    )
+    print(model)
+
+    # Freeze all parameters
+    for param in model.parameters(): # TODO load model functin.
+        param.requires_grad = False
+
+    # Unfreeze last two layers of the transformer encoder
+    for block in model.dino.encoder.layer[-2:]:
+        for param in block.parameters():
+            param.requires_grad = True
+
+    # Unfreeze final layers (layernorm, linear, dropout)
+    for param in model.dino.layernorm.parameters():
+        param.requires_grad = True
+
+    for param in model.linear.parameters():
+        param.requires_grad = True
+
+    # print each params requires_grad
+    for name, param in model.named_parameters():
+        print(f"{name}: {param.requires_grad}")
+
 if __name__ == "__main__":
     
     """forward_cat_test(output_dim=None)
@@ -282,5 +310,7 @@ if __name__ == "__main__":
     forward_avg_test(output_dim=50)
     forward_max_test(output_dim=50)"""
     
-    cls_test_single_frame(output_dim=None)
-    cls_test_single_frame(output_dim=50)
+    #cls_test_single_frame(output_dim=None)
+    #cls_test_single_frame(output_dim=50)
+
+    print_model_architecture()

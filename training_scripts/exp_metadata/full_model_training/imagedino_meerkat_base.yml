@@ -30,16 +30,16 @@ training_details:
     margin: 1.0
     name: triplet_margin_loss
     p: 2
-  epochs: 50
+  epochs: 20
   log_directory: results/full_model_training/imagedino_b_meerkat/
   optimizer_details:
     lr: 0.0001
     name: adamw
     weight_decay: 0.01
   scheduler_details:
-    decay_steps: 3752
+    decay_steps: 1485
     end_lr: 0.0001
     max_lr: 0.005
     name: warmup_cosine_decay_scheduler
     start_lr: 0.001
-    warmup_steps: 198
+    warmup_steps: 78

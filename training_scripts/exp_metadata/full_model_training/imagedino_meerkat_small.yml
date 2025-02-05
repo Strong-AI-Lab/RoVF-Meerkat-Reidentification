@@ -1,10 +1,10 @@
 dataloader_details:
   K: 20
   apply_mask_percentage: 1.0
-  clips_directory: Dataset/polarbears_h5files/clips/
-  cooccurrences_filepath: Dataset/polarbears_h5files/Cooccurrences.json
+  clips_directory: Dataset/meerkat_h5files/clips/
+  cooccurrences_filepath: Dataset/meerkat_h5files/Cooccurrences.json
   is_override: true
-  mask_path: Dataset/polarbears_h5files/masks/PB_masks.pkl
+  mask_path: Dataset/meerkat_h5files/masks/meerkat_masks.pkl
   mode: positive_negative
   num_frames: 1
   override_value: 5000
@@ -12,7 +12,7 @@ dataloader_details:
   transformations: null
   zfill_num: 4
 model_details:
-  dino_model_name: facebook/dinov2-base
+  dino_model_name: facebook/dinov2-small
   dropout_rate: 0.1
   forward_strat: cls
   model_type: dino
@@ -31,7 +31,7 @@ training_details:
     name: triplet_margin_loss
     p: 2
   epochs: 20
-  log_directory: results/full_model_training/imagedino_b_polarbear/
+  log_directory: results/full_model_training/imagedino_s_meerkat/
   optimizer_details:
     lr: 0.0001
     name: adamw

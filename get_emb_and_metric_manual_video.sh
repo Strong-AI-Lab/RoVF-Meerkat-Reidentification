@@ -51,8 +51,6 @@ choose_animal
 choose_device
 
 # Set paths based on the chosen animal
-read -p "Enter the checkpoint directory: " checkpoint_dir
-
 if [ "$animal" == "meerkat" ]; then
     mask_file="Dataset/meerkat_h5files/masks/meerkat_masks.pkl"
     dataset_file="Dataset/meerkat_h5files/Precomputed_test_examples_meerkat.csv"
@@ -65,11 +63,23 @@ elif [ "$animal" == "polarbear" ]; then
     clips_directory="Dataset/polarbears_h5files/clips/Test/"
 fi
 
-# Find all .pt files in the checkpoint directory recursively
-checkpoints=$(find "$checkpoint_dir" -type f -name "*.pt")
+# Prompt user for checkpoint file paths
+checkpoints=()
+echo "Enter checkpoint file paths (one per line). Enter an empty line when done:"
+while true; do
+    read -p "Checkpoint file: " cp
+    if [ -z "$cp" ]; then
+        break
+    fi
+    if [ -f "$cp" ]; then
+        checkpoints+=("$cp")
+    else
+        echo "Warning: File '$cp' not found. Please enter a valid path."
+    fi
+done
 
 # Loop over each checkpoint and run the command with and without the mask
-for cp in $checkpoints; do
+for cp in "${checkpoints[@]}"; do
     echo "Running with mask for checkpoint: $cp"
     python main.py test '' -cp "$cp" -df "$dataset_file" -d "$device" -m "$mask_file" -cd "$clips_directory" -co "$cooccurrences_file"
     

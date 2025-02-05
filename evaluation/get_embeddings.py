@@ -47,7 +47,10 @@ def get_embeddings(
     # Load the string into a dictionary using YAML (use safe_load for security)
     mdata = yaml.safe_load(mdata)
     
-    num_frames = mdata['dataloader_details']["num_frames"] if "num_frames" in mdata['dataloader_details'].keys() else num_frames
+    if img_maj_vote:
+        num_frames = num_frames
+    else:
+        num_frames = mdata['dataloader_details']["num_frames"] if "num_frames" in mdata['dataloader_details'].keys() else num_frames
     print(f"num_frames: {num_frames}")
     print(f"img_maj_vote: {img_maj_vote}")
 
@@ -70,6 +73,7 @@ def get_embeddings(
             if img_maj_vote:
                 output = []
                 for frame_idx in range(data.size(1)):  # assuming data is of shape (batch_size, num_frames, channels, height, width)
+                    
                     frame_data = data[:, frame_idx, :, :, :].to(device)
                     frame_output = model(frame_data)
                     output.append(frame_output)
@@ -91,6 +95,7 @@ def get_embeddings(
                 else:
                     raise Exception(f"output size not recognized: {output.size()}")
             else:  # img_maj_vote
+                # Only tested for batch size of 1. 
                 if len(output[0].size()) == 1:  # Non-batch processing for img_maj_vote
                     embeddings[path[0]] = output
                 elif len(output[0].size()) == 2:  # Batch processing for img_maj_vote

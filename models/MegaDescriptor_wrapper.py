@@ -4,7 +4,10 @@ import timm
 import os
 
 class MegaDescriptorVideoWrapper(nn.Module):
-    def __init__(self, model_name, output_dim, forward_strat: str="cat", sequence_length=None, num_frames: int=1, dropout_rate=0.1, pretrained=True, checkpoint_path=None):
+    def __init__(
+        self, model_name, output_dim, forward_strat: str="cat", sequence_length=None, 
+        num_frames: int=1, dropout_rate=0.1, pretrained=True, checkpoint_path=None
+    ):
         super(MegaDescriptorVideoWrapper, self).__init__()
         
         # Load the MegaDescriptor model
@@ -222,11 +225,6 @@ def forward_max_test(output_dim):
         else:
             print(f"No gradient computed for {name}")
 
-def print_model_architecture():
-    model_name = 'hf-hub:BVRA/MegaDescriptor-T-224'
-    model = timm.create_model(model_name, pretrained=True)
-    print(model)
-
 def test_cls(output_dim):
     print(f"CLS test with output_dim={output_dim}")
 
@@ -267,6 +265,30 @@ def test_cls(output_dim):
         else:
             print(f"No gradient computed for {name}")
 
+def print_model_architecture():
+    model_name = 'hf-hub:BVRA/MegaDescriptor-L-224'
+    model = MegaDescriptorVideoWrapper(
+        model_name, output_dim=384, forward_strat="cls", 
+        sequence_length=None, num_frames=1, dropout_rate=0.0
+    )
+    print(model)
+
+    for name, param in model.named_parameters():
+        param.requires_grad = False
+
+    # Freeze all layers except for the last SwinTransformerStage (model.layers.3), norm, head, and linear layers
+    for name, param in model.named_parameters():
+        if (name.startswith("model.layers.3") or 
+                name.startswith("model.norm") or 
+                name.startswith("model.head") or 
+                name.startswith("linear")):
+            param.requires_grad = True
+
+    # Verify which layers are trainable
+    for name, param in model.named_parameters():
+        print(f"{name}: requires_grad={param.requires_grad}")
+
+
 if __name__ == "__main__":
     
     #forward_cat_test(output_dim=None)
@@ -276,7 +298,7 @@ if __name__ == "__main__":
     #forward_avg_test(output_dim=50)
     #forward_max_test(output_dim=50)
 
-    test_cls(1000)
-    test_cls(None)
+    #test_cls(1000)
+    #test_cls(None)
 
     print_model_architecture()

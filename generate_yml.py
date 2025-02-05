@@ -1302,6 +1302,8 @@ def create_full_model_training():
         "results/full_model_training/imagedino_b_polarbear/",
         "results/full_model_training/megadescriptor_b_meerkat/",
         "results/full_model_training/megadescriptor_b_polarbear/",
+        "results/full_model_training/megadescriptor_s_meerkat/",
+        "results/full_model_training/megadescriptor_s_polarbear/",
         "results/full_model_training/megadescriptor_l_meerkat/",
         "results/full_model_training/megadescriptor_l_polarbear/",
         "results/full_model_training/megadescriptor_t_meerkat/",
@@ -1314,7 +1316,6 @@ def create_full_model_training():
         "results/full_model_training/timesformer_no_mask_aug_polarbear/",
         "results/full_model_training/vivit_no_mask_aug_meerkat/",
         "results/full_model_training/vivit_no_mask_aug_polarbear/"
-        
     ]
     for path in filepath_list:
         if not os.path.exists(path):
