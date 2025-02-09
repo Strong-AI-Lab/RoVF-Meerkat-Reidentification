@@ -94,6 +94,8 @@ def get_metrics(models, df, img_maj_vote=False):
                 #print(f"len(row_embeddings[0]): {len(row_embeddings[0])}")
                 #print(f"row_embeddings[0].shape: {row_embeddings[0].shape}")
                 frame_embeddings = [np.stack([frame for frame in frames]) for frames in row_embeddings]
+                #print(f"len(frame_embeddings): {len(frame_embeddings)}") 11
+                #print(f"frame_embeddings[0].shape: {frame_embeddings[0].shape}") 512
                 embeddings = np.transpose(np.stack(frame_embeddings), (1, 0, 2))
                 #print(f"embeddings.shape: {embeddings.shape}") 
                 # examples, frames, embedding_dim without change of dimensions; frames, examples, embedding_dim with permute
@@ -269,7 +271,7 @@ def get_dino_pretrained_results_polarbears():
     ]
 
     # Load dataframe of test examples
-    df = pd.read_csv("../Dataset/polarbears_h5files/Precomputed_test_examples_PB.csv")
+    df = pd.read_csv("../Dataset/polarbears_h5files/Precomputed_test_examples_polarbear.csv")
     
     # Get metrics for all models
     metrics = get_metrics(models, df)
@@ -280,6 +282,55 @@ def get_dino_pretrained_results_polarbears():
         for i, (top1, top3, unique_top3) in enumerate(metrics):
             file.write(f"Model {i}: Top-1 Accuracy: {top1}, Top-3 Accuracy: {top3}, Unique in Top-3: {unique_top3} - {models[i]}\n")
 
+def get_image_model_results_meerkat():
+    models = [
+        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/bioclip_hf_hub_imageomics_bioclip_/bioclip_cls_10frames_meerkat_with_mask.pkl",
+        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/dino_facebook_dinov2_base_/dinov2-base_cls_10frames_meerkat_with_mask.pkl",
+        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/dino_facebook_dinov2_giant_/dinov2-giant_cls_10frames_meerkat_with_mask.pkl",
+        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/dino_facebook_dinov2_large_/dinov2-large_cls_10frames_meerkat_with_mask.pkl",
+        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/dino_facebook_dinov2_small_/dinov2-small_cls_10frames_meerkat_with_mask.pkl",
+        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/megadescriptor_hf_hub_BVRA_MegaDescriptor_B_224_/MegaDescriptor-B-224_cls_10frames_meerkat_with_mask.pkl",
+        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/megadescriptor_hf_hub_BVRA_MegaDescriptor_L_224_/MegaDescriptor-L-224_cls_10frames_meerkat_with_mask.pkl",
+        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/megadescriptor_hf_hub_BVRA_MegaDescriptor_S_224_/MegaDescriptor-S-224_cls_10frames_meerkat_with_mask.pkl",
+        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/megadescriptor_hf_hub_BVRA_MegaDescriptor_T_224_/MegaDescriptor-T-224_cls_10frames_meerkat_with_mask.pkl"
+    ]
+
+    # Load dataframe of test examples
+    df = pd.read_csv("../Dataset/meerkat_h5files/Precomputed_test_examples_meerkat.csv")
+    
+    # Get metrics for all models
+    metrics = get_metrics(models, df, img_maj_vote=True)
+    
+    # Save the results to a text file
+    with open("../results/pre_trained_model/meerkat_results.txt", "w") as file:
+        # Write the results for each model
+        for i, (top1, top3, unique_top3) in enumerate(metrics):
+            file.write(f"Model {i}: Top-1 Accuracy: {top1}, Top-3 Accuracy: {top3}, Unique in Top-3: {unique_top3} - {models[i]}\n")
+
+def get_image_model_results_polarbears():
+    models = [
+        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/bioclip_hf_hub_imageomics_bioclip_/bioclip_cls_10frames_polarbears_with_mask.pkl",
+        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/dino_facebook_dinov2_base_/dinov2-base_cls_10frames_polarbears_with_mask.pkl",
+        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/dino_facebook_dinov2_giant_/dinov2-giant_cls_10frames_polarbears_with_mask.pkl",
+        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/dino_facebook_dinov2_large_/dinov2-large_cls_10frames_polarbears_with_mask.pkl",
+        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/dino_facebook_dinov2_small_/dinov2-small_cls_10frames_polarbears_with_mask.pkl",
+        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/megadescriptor_hf_hub_BVRA_MegaDescriptor_B_224_/MegaDescriptor-B-224_cls_10frames_polarbears_with_mask.pkl",
+        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/megadescriptor_hf_hub_BVRA_MegaDescriptor_L_224_/MegaDescriptor-L-224_cls_10frames_polarbears_with_mask.pkl",
+        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/megadescriptor_hf_hub_BVRA_MegaDescriptor_S_224_/MegaDescriptor-S-224_cls_10frames_polarbears_with_mask.pkl",
+        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/megadescriptor_hf_hub_BVRA_MegaDescriptor_T_224_/MegaDescriptor-T-224_cls_10frames_polarbears_with_mask.pkl"
+    ]
+
+    # Load dataframe of test examples
+    df = pd.read_csv("../Dataset/polarbears_h5files/Precomputed_test_examples_polarbear.csv")
+    
+    # Get metrics for all models
+    metrics = get_metrics(models, df, img_maj_vote=True)
+
+    # Save the results to a text file
+    with open("../results/pre_trained_model/polarbears_results.txt", "w") as file:
+        # Write the results for each model
+        for i, (top1, top3, unique_top3) in enumerate(metrics):
+            file.write(f"Model {i}: Top-1 Accuracy: {top1}, Top-3 Accuracy: {top3}, Unique in Top-3: {unique_top3} - {models[i]}\n")
 
 def main():
     # List of model embedding paths
@@ -298,6 +349,9 @@ def main():
         print(f"Model {i}: Top-1 Accuracy: {top1}, Top-3 Accuracy: {top3}, Unique in Top-3: {unique_top3}")
 
 if __name__ == "__main__":
-    main()
+    #main()
     #get_dino_pretrained_results_meerkat()
     #get_dino_pretrained_results_polarbears()
+    get_image_model_results_meerkat()
+    #get_image_model_results_polarbears()
+

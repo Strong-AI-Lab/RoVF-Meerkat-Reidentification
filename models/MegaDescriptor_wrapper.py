@@ -78,6 +78,7 @@ class MegaDescriptorVideoWrapper(nn.Module):
             #output_tensor = torch.stack([cls_[:,0] for cls_ in cls_outputs], dim=1) # (b, #frames, dm)
             #output_tensor = torch.mean(output_tensor, dim=1)
             output_tensor = cls_outputs[-1] # (b, dm) # if this is a video, take the last frame. Assume in practice that only one frame is provided.
+            # this clip model already outputs a single dm vector. So no need to do anything else.
         else:    
             raise ValueError(f"Invalid forward strategy: {self.forward_strat}. Please use one of 'cat', 'average', or 'max'.")
         
@@ -232,7 +233,7 @@ def test_cls(output_dim):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    num_frames = 5
+    num_frames = 1
     model = MegaDescriptorVideoWrapper(
         model_name, output_dim, forward_strat="cls", sequence_length=None, num_frames=num_frames, dropout_rate=0.0
     )
@@ -266,7 +267,7 @@ def test_cls(output_dim):
             print(f"No gradient computed for {name}")
 
 def print_model_architecture():
-    model_name = 'hf-hub:BVRA/MegaDescriptor-L-224'
+    model_name = 'hf-hub:BVRA/MegaDescriptor-T-224'
     model = MegaDescriptorVideoWrapper(
         model_name, output_dim=384, forward_strat="cls", 
         sequence_length=None, num_frames=1, dropout_rate=0.0
@@ -299,6 +300,6 @@ if __name__ == "__main__":
     #forward_max_test(output_dim=50)
 
     #test_cls(1000)
-    #test_cls(None)
+    test_cls(None)
 
-    print_model_architecture()
+    #print_model_architecture()

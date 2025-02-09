@@ -95,7 +95,7 @@ class DINOv2VideoWrapper(nn.Module):
             output_tensor = torch.stack([cls_[:,0,:] for cls_ in cls_outputs], dim=1) # (b, #frames, dm)])
             assert len(output_tensor.size()) == 3, f"output_tensor.size(): {output_tensor.size()}; expected 3 dimensions (batch, #frames, dm)."
             # average now.
-            output_tensor = torch.mean(output_tensor, dim=-2)
+            output_tensor = torch.mean(output_tensor, dim=-2) # if number of frames is 1, then select the only frame.
 
         else: # Error    
             raise ValueError(f"Invalid forward strategy: {self.forward_strat}. Please use one of 'cat', 'average', or 'max'.")

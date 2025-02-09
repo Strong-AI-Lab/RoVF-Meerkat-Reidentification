@@ -19,10 +19,12 @@ from PIL import Image
 
 from dataloaders.ReID import AnimalClipDataset
 from models.dinov2_wrapper import DINOv2VideoWrapper
+from models.bioCLIP_wrapper import BioCLIPVideoWrapper
+from models.MegaDescriptor_wrapper import MegaDescriptorVideoWrapper
 from models.perceiver_wrapper import CrossAttention, TransformerEncoder, Perceiver
 from models.recurrent_wrapper import RecurrentWrapper
 from models.recurrent_decoder import RecurrentDecoder
-from training_functions.load_model_helper import dino_model_load, recurrent_model_perceiver_load
+from training_functions.load_model_helper import dino_model_load, recurrent_model_perceiver_load, bioclip_model_load, megadescriptors_model_load
 from training_functions.dataloader_helper import dataloader_creation
 
 import pickle
@@ -111,11 +113,55 @@ def get_embeddings(
 
 def main(args):
     load_masks = args.load_masks
+
+    print(f"args.image_maj_vote: {args.image_maj_vote}")
+
     masks = None
     if load_masks:
         mask_path = args.mask_path
         with open(mask_path, "rb") as f:
             masks = pickle.load(f)
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    if args.model_type == "dino":
+        model = dino_model_load(
+            dino_model_name=args.pre_trained_model, 
+            output_dim=args.output_dim, 
+            forward_strat=args.forward_strat, 
+            sequence_length=args.sequence_length, 
+            num_frames=1, 
+            dropout_rate=args.dropout_rate
+        )
+    elif args.model_type == "bioclip":
+        model = bioclip_model_load(
+            model_name=args.pre_trained_model, 
+            output_dim=args.output_dim, 
+            forward_strat=args.forward_strat, 
+            sequence_length=args.sequence_length,
+            num_frames=1, # hardcoded image model
+            dropout_rate=args.dropout_rate,
+            checkpoint_path=None
+        )
+    elif args.model_type == "megadescriptor":
+        model = megadescriptors_model_load(
+            model_name=args.pre_trained_model, 
+            output_dim=args.output_dim, 
+            forward_strat=args.forward_strat, 
+            sequence_length=args.sequence_length, 
+            num_frames=1, # hardcode 
+            dropout_rate=args.dropout_rate,
+            checkpoint_path=None
+        )
+    else:
+        raise Exception(f"Model type {args.model_type} not recognized")
+
+    if args.checkpoint:
+        checkpoint = torch.load(args.checkpoint)
+        model.load_state_dict(checkpoint["model_state_dict"])
+
+    model.to(device)
+    model.eval()
 
     dataloader = dataloader_creation(
         transformations=None, 
@@ -132,40 +178,44 @@ def main(args):
         apply_mask_percentage=args.apply_mask_percentage
     )
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    model = dino_model_load(
-        dino_model_name=args.dino_model_name, 
-        output_dim=args.output_dim, 
-        forward_strat=args.forward_strat, 
-        sequence_length=args.sequence_length, 
-        num_frames=args.num_frames, 
-        dropout_rate=args.dropout_rate
-    )
-
-    if args.checkpoint:
-        checkpoint = torch.load(args.checkpoint)
-        model.load_state_dict(checkpoint["model_state_dict"])
-
-    model.to(device)
-    model.eval()
-
     print(f"len(dataloader): {len(dataloader)}")
 
     embeddings = {}
     for i, (path, data) in enumerate(dataloader):
         with torch.no_grad():
-            output = model(data.to(device))
-            if isinstance(output, tuple) or isinstance(output, list):
-                output = output[-1]
-            if len(output.size()) == 1:
-                embeddings[path[0]] = output
-            elif len(output.size()) == 2:
-                assert len(path) == output.size(0)
-                for j in range(output.size(0)):
-                    embeddings[path[j]] = output[j]
+            if args.image_maj_vote:
+                output = []
+                for frame_idx in range(data.size(1)):  # assuming data is of shape (batch_size, num_frames, channels, height, width)
+                    frame_data = data[:, frame_idx, :, :, :].to(device)
+                    frame_output = model(frame_data)
+                    #print(f"frame_output.size(): {frame_output.size()}")
+                    output.append(frame_output)
+                # [frames][batch_size, output_dim] or [frames][output_dim]
             else:
-                raise Exception(f"output size not recognized: {output.size()}")
+                output = model(data.to(device))
+
+            if isinstance(output, tuple) or isinstance(output, list) and not args.image_maj_vote:
+                output = output[-1]
+            # if image_maj_vote, output is already in the correct format and we don't need to do anything
+
+            if not args.image_maj_vote:
+                if len(output.size()) == 1:
+                    embeddings[path[0]] = output
+                elif len(output.size()) == 2: # batch processing
+                    assert len(path) == output.size(0)
+                    for j in range(output.size(0)):
+                        embeddings[path[j]] = output[j]
+                else:
+                    raise Exception(f"output size not recognized: {output.size()}")
+            else:  # image_maj_vote
+                # Only tested for batch size of 1. 
+                if len(output[0].size()) == 1:  # Non-batch processing for image_maj_vote
+                    embeddings[path[0]] = output
+                elif len(output[0].size()) == 2:  # Batch processing for image_maj_vote
+                    for j in range(output[0].size(0)):
+                        embeddings[path[j]] = [output[k][j] for k in range(len(output))] # k is the # of frames. # j is batch size.
+                else:
+                    raise Exception(f"output size not recognized: {output[0].size()}")
 
     print(f"len(embeddings): {len(embeddings)}")
 
@@ -197,6 +247,10 @@ if __name__ == "__main__":
     
     parser.add_argument("--checkpoint", type=str, default=None, help="Path to model checkpoint")
     parser.add_argument("--output_file", type=str, required=True, help="Output file path for embeddings")
+    
+    parser.add_argument("--model_type", type=str, default="dino", help="Model type")
+    parser.add_argument("--pre_trained_model", type=str, default=None, help="Path to pre-trained model")
+    parser.add_argument("--image_maj_vote", action="store_true", help="Whether to use image majority vote")
 
     args = parser.parse_args()
     main(args)

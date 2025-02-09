@@ -70,7 +70,8 @@ class BioCLIPVideoWrapper(nn.Module):
             stacked_tensors = torch.stack(cls_outputs, dim=1) # (b, #frames, dm)
             output_tensor = torch.max(stacked_tensors, dim=1).values # max along frame dimension
         elif self.forward_strat == "cls":
-            output_tensor = cls_outputs[-1] # (b, dm) # if this is a video, take the last frame. Assume in practice that only one frame is provided.
+            output_tensor = cls_outputs[-1] # (b, dm) # if this is a video, take the last frame. Assume in practice that only one frame is provided. 
+            # this clip model already outputs a single dm vector. So no need to do anything else.
         else:    
             raise ValueError(f"Invalid forward strategy: {self.forward_strat}. Please use one of 'cat', 'average', or 'max'.")
         
@@ -194,7 +195,7 @@ def cls_test(output_dim=None):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    num_frames = 5
+    num_frames = 1
     model = BioCLIPVideoWrapper(
         model_name, output_dim=output_dim, forward_strat="cls", sequence_length=None, num_frames=num_frames, dropout_rate=0.0
     )
@@ -259,7 +260,7 @@ if __name__ == "__main__":
     #forward_avg_test(output_dim=50)
     #forward_max_test(output_dim=50)
 
-    #cls_test(output_dim=None)
+    cls_test(output_dim=None)
     #cls_test(output_dim=50)
 
-    print_model_architecture()
+    #print_model_architecture()

@@ -24,6 +24,7 @@ We are still updating this repository, and in particular, we plan to make the fo
 * Add segmentation evaluation code.
 * Add some improvements to the segmentation code and documentation.
 * Update comments/documentation for all files.
+* Move code to get pre-trained model results into main.py
 
 ## Installation
 
