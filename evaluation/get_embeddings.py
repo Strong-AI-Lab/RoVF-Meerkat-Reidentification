@@ -100,7 +100,7 @@ def get_embeddings(
                     embeddings[path[0]] = output
                 elif len(output[0].size()) == 2:  # Batch processing for img_maj_vote
                     for j in range(output[0].size(0)):
-                        embeddings[path[j]] = [output[k][j] for k in range(len(output))]
+                        embeddings[path[j]] = [output[k][j] for k in range(len(output))] # k is the # of frames. # j is batch size.
                 else:
                     raise Exception(f"output size not recognized: {output[0].size()}")
 

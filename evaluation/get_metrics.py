@@ -112,22 +112,35 @@ def get_metrics(models, df, img_maj_vote=False):
                 # get top-1 and top-3 and unique in top-3 for majority vote over each frame
                 for img_idx in range(2):
                     top1_votes = []
-                    top3_votes = []
+                    ranks_per_frame = []
                     unique_candidates = set()
+                    
+                    # Collect per-frame ranks and candidates
                     for frame_dists in frame_distances:
                         ranks = indices_of_smallest(frame_dists[img_idx], img_idx)
+                        ranks_per_frame.append(ranks)
                         if ranks:
                             top1_votes.append(ranks[0])
-                            top3_votes.append(1 if (0 in ranks[:3] or 1 in ranks[:3]) else 0)
                             unique_candidates.update(ranks)
                         else:
                             top1_votes.append(None)
-                            top3_votes.append(0)
+                    
+                    # Majority vote for top-1
                     valid_votes = [vote for vote in top1_votes if vote is not None]
                     if valid_votes:
                         majority_top1 = majority_vote(valid_votes)
                         results[k, idx + img_idx, 0] = 1 if majority_top1 in [0, 1] else 0
-                    results[k, idx + img_idx, 1] = 1 if sum(top3_votes) > len(top3_votes) / 2 else 0
+                        
+                        # Check if majority_top1 is in the top-3 for most frames
+                        top3_votes = []
+                        for ranks in ranks_per_frame:
+                            top3_votes.append(1 if (ranks and majority_top1 in ranks[:3]) else 0)
+                        results[k, idx + img_idx, 1] = 1 if sum(top3_votes) > len(top3_votes) / 2 else 0
+                    else:
+                        results[k, idx + img_idx, 0] = 0
+                        results[k, idx + img_idx, 1] = 0
+                    
+                    # Unique candidates in top-3 across frames
                     results[k, idx + img_idx, 2] = len(unique_candidates)
 
             else:
