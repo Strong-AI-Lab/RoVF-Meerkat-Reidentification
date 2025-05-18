@@ -74,7 +74,10 @@ def apply_SAM2(config, boxes):
 
             SAM_masks[name] = final_masks
 
-    with open(config["output_folder"]+"/"+config["prefix"]+"_SAM_box_masks.pkl", 'wb') as f:
+    save_filename = config["output_folder"]+"/"+config["prefix"]+"_SAM"
+    if config["yolo_boxes"]:
+        save_filename += "_YOLO"
+    with open(save_filename+"_box_masks.pkl", 'wb') as f:
         pickle.dump(SAM_masks,f)
 
 def visualise_masks(masks, images):
@@ -105,6 +108,7 @@ def main():
     #Related to resources available
     parser.add_argument('-d', '--device', type=str, default='cuda', help='Device to use (e.g., cuda)')
     parser.add_argument('-b', '--batch_size', type=int, default=4, help='Batch size for processing')
+    parser.add_argument('-y', '--yolo_boxes', type=bool, default=False, help="Whether to use the YOLO predictions instead of ground-truth boxes")
 
     # Parse the arguments
     args = parser.parse_args()
@@ -118,16 +122,22 @@ def main():
         "frame_prompts":eval(args.frame_prompts),
         "prefix": args.prefix,
         "dataset_dir":"../Dataset/"+args.dataset_dir+"_h5files/",
-        "dataset":args.dataset_dir
+        "dataset":args.dataset_dir,
+        "yolo_boxes":args.yolo_boxes
     }
 
     if not os.path.exists(config["output_folder"]):
         os.makedirs(config["output_folder"])
 
     #Import boxes
-    with open(os.path.join(config["dataset_dir"], "boxes.json"), 'r') as file:
-        boxes = json.load(file)
+    box_file = "boxes.json"
+    if config["yolo_boxes"]:
+        box_file = "boxes_YOLO.json"
+    print(box_file)
 
+    with open(os.path.join(config["dataset_dir"], box_file), 'r') as file:
+        boxes = json.load(file)
+        
     apply_SAM2(config, boxes)
 
 main()

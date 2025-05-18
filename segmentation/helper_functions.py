@@ -96,21 +96,25 @@ def get_video_box(boxes, names, frames=list(range(20))):
     box_array = []
     for name in names:
         for frame in frames:
-            r = boxes[name]["boxes"][frame]
-            p = boxes[name]["raw"][frame]
+            if "boxes" in boxes[name]:
+                r = boxes[name]["boxes"][frame]
+                p = boxes[name]["raw"][frame]
 
-            if p == [0,224,0,224]:
-                x1, x2, y1, y2 = r
+                if p == [0,224,0,224]:
+                    x1, x2, y1, y2 = r
+                else:
+                    original_dims = [r[1]-r[0],r[3]-r[2]]
+
+                    scale_x = 224/original_dims[0]
+                    scale_y = 224/original_dims[1]
+
+                    x1 = int((p[0] - r[0]) * scale_x) 
+                    x2 = int((p[1] - r[0]) * scale_x)
+                    y1 = int((p[2] - r[2]) * scale_y)
+                    y2 = int((p[3] - r[2]) * scale_y)
             else:
-                original_dims = [r[1]-r[0],r[3]-r[2]]
-
-                scale_x = 224/original_dims[0]
-                scale_y = 224/original_dims[1]
-
-                x1 = int((p[0] - r[0]) * scale_x) 
-                x2 = int((p[1] - r[0]) * scale_x)
-                y1 = int((p[2] - r[2]) * scale_y)
-                y2 = int((p[3] - r[2]) * scale_y)
+                #For the YOLO formatted boxes
+                x1, y1, x2, y2 = boxes[name][str(frame)]
 
             box_array.append([x1,x2,y1,y2])
     
