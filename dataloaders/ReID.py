@@ -203,7 +203,7 @@ if __name__ == "__main__":
     import torchvision.transforms.v2 as transforms
     import pickle
 
-    with open('../Dataset/meerkat_h5files/Meerkat_masks.pkl', 'rb') as f:
+    with open('../Dataset/meerkat_h5files/masks/meerkat_masks.pkl', 'rb') as f:
         masks = pickle.load(f)
     
     print(len(masks))
@@ -232,9 +232,9 @@ if __name__ == "__main__":
 
     transformations = get_meerkat_transforms(['random_resized_crop', "horizontal_flip", 'gaussian_blur', "color_jitter"])
 
-    dataset = AnimalClipDataset("/home/kkno604/data/meerkat_data/h5files/Train/", cooccurrences, num_frames=20, transformations=transformations, masks=masks)
+    dataset = AnimalClipDataset("../Dataset/meerkat_h5files/clips/Train/", cooccurrences, num_frames=32, transformations=transformations, masks=masks, device="cuda")
     #dataset = AnimalClipDataset("../Dataset/meerkat_h5files/Train/", cooccurrences, num_frames=20, masks=masks, transformations=True)  #masks=masks, 
-    dataloader = DataLoader(dataset, batch_size=1, shuffle=True) # TODO test larger batch size
+    dataloader = DataLoader(dataset, batch_size=1, shuffle=True, num_workers=4)
 
     print("Data loaded")
     data_iterator = iter(dataloader)

@@ -8,8 +8,6 @@ import torch.nn.functional as F
 import transformers 
 from transformers import AutoModel
 
-
-
 class TransformerEncoder(nn.Module):
     def __init__(self, latent_dim, num_heads, num_layers, dropout):
         super().__init__()
@@ -249,7 +247,7 @@ class Perceiver(nn.Module):
         self.embedding_dim = embedding_dim
         self.use_raw_input = use_raw_input
         self.use_embeddings = use_embeddings
-        assert (use_raw_input or use_embeddings) and not (use_raw_input and use_embeddings), "At least one of use_raw_input or use_embeddings must be True"
+        assert (use_raw_input or use_embeddings) and not (use_raw_input and use_embeddings), "At least one of use_raw_input or use_embeddings must be True and both cannot be True at once"
         self.flatten_channels = flatten_channels
 
         if use_raw_input:

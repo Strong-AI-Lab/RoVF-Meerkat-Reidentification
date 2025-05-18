@@ -1,0 +1,54 @@
+dataloader_details:
+  K: 20
+  apply_mask_percentage: 0.5
+  clips_directory: Dataset/polarbears_h5files/clips/
+  cooccurrences_filepath: Dataset/polarbears_h5files/Cooccurrences.json
+  is_override: true
+  mask_path: Dataset/polarbears_h5files/masks/PB_masks.pkl
+  mode: positive_negative
+  num_frames: 5
+  override_value: 5000
+  total_frames: 20
+  transformations: null
+  zfill_num: 4
+model_details:
+  dino_model_name: facebook/dinov2-small
+  dropout_rate: 0.1
+  embedding_dim: 384
+  flatten_channels: null
+  freeze_image_model: true
+  is_append_avg_emb: true
+  latent_dim: 1024
+  model_type: GRU
+  num_heads: null
+  num_latents: null
+  num_tf_layers: 2
+  output_dim: 384
+  raw_input_dim: null
+  use_embeddings: null
+  use_raw_input: null
+training_details:
+  accumulation_steps: 1
+  anchor_dino_model: null
+  anchor_function_details:
+    similarity_measure: euclidean_distance
+    type: hard
+  batch_size: 30
+  clip_value: null
+  criterion_details:
+    margin: 1.0
+    name: triplet_margin_loss
+    p: 2
+  epochs: 10
+  log_directory: results/full_model_training/gru_50_50_0p5_no_aug_polarbear/
+  optimizer_details:
+    lr: 0.0001
+    name: adamw
+    weight_decay: 0.01
+  scheduler_details:
+    decay_steps: 4750
+    end_lr: 0.0001
+    max_lr: 0.005
+    name: warmup_cosine_decay_scheduler
+    start_lr: 0.001
+    warmup_steps: 250

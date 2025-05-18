@@ -3,7 +3,7 @@ import torch.nn as nn
 import random
 
 def val(
-    model, valloader, anchor_fn_semi_hard, device, similarity_measure, criterion, 
+    model, valloader, anchor_fn, device, similarity_measure, criterion, 
     log_path, batch_size, current_epoch, num_epochs, do_metrics=False, 
     num_negatives=5
 ):
@@ -11,16 +11,17 @@ def val(
     assert similarity_measure is not None, "similarity_measure must be provided."
 
     def get_top1_and_top3(distances):
+        # TODO: top3 not supported, update fn in accordance.
         assert len(distances.size()) == 1 or len(distances.squeeze().size()) == 1, "distances must be a 1D tensor (or equivalent)."
         top_1 = torch.argmin(distances).item() # Returns the indices of the minimum value(s) of the flattened tensor or along a dimension
-        top_3 = torch.topk(distances, 3, largest=False).indices
+        #top_3 = torch.topk(distances, 3, largest=False).indices
         
         top_1_correct = 1 if top_1 == 0 else 0
-        top_3_correct = 1 if 0 in top_3 else 0
+        #top_3_correct = 1 if 0 in top_3 else 0
         
         top_1_total = 1
-        top_3_total = 1
-        return top_1_correct, top_1_total, top_3_correct, top_3_total
+        #top_3_total = 1
+        return top_1_correct, top_1_total, 0, 0
 
     # current_epoch should have 1 added already.
 
@@ -42,10 +43,9 @@ def val(
         assert len(positive_list) >= 2, "Positive list must have at least 2 items."
         
         with torch.no_grad():
-            anchor_emb, positive_emb, negative_emb, _ = anchor_fn_semi_hard(
+            anchor_emb, positive_emb, negative_emb, _ = anchor_fn(
                 model, positive_list, negative_list, device, similarity_measure=similarity_measure, is_ret_emb=True
             )
-
 
         if len(anchor_emb.size()) == 1:
             anchor_emb = anchor_emb.unsqueeze(0)
@@ -67,8 +67,8 @@ def val(
         a, b, c, d, = get_top1_and_top3(distances)
         top_1_correct += a
         top_1_total += b
-        top_3_correct += c
-        top_3_total += d
+        #top_3_correct += c
+        #top_3_total += d
 
         # switch the query to the positive (non-anchor) example.
         query = positive_emb # (d_model)
@@ -78,8 +78,8 @@ def val(
         a, b, c, d, = get_top1_and_top3(distances)
         top_1_correct += a
         top_1_total += b
-        top_3_correct += c
-        top_3_total += d
+        #top_3_correct += c
+        #top_3_total += d
 
     avg_loss = cumulative_loss / counter
     if not do_metrics:
@@ -87,8 +87,8 @@ def val(
         with open(loss_log_path_epoch, "a") as loss_log_file:
             loss_log_file.write(f"Epoch [{current_epoch}/{num_epochs}], Average Loss: {avg_loss}\n")
         return avg_loss, None, None
-    print(f"Epoch [{current_epoch}/{num_epochs}], Average Val Loss: {avg_loss}, Top-1 Total Correct: {top_1_correct}/{top_1_total} ({top_1_correct/top_1_total}), Top-3 Total Correct: {top_3_correct}/{top_3_total} ({top_3_correct/top_3_total})")
+    print(f"Epoch [{current_epoch}/{num_epochs}], Average Val Loss: {avg_loss}, Top-1 Total Correct: {top_1_correct}/{top_1_total} ({top_1_correct/top_1_total})")
     with open(loss_log_path_epoch, "a") as loss_log_file:
-        loss_log_file.write(f"Epoch [{current_epoch}/{num_epochs}], Average Loss: {avg_loss}, Top-1 Total Correct: {top_1_correct}/{top_1_total} ({top_1_correct/top_1_total}), Top-3 Total Correct: {top_3_correct}/{top_3_total} ({top_3_correct/top_3_total})\n")
+        loss_log_file.write(f"Epoch [{current_epoch}/{num_epochs}], Average Loss: {avg_loss}, Top-1 Total Correct: {top_1_correct}/{top_1_total} ({top_1_correct/top_1_total})\n")
 
     return avg_loss, top_1_correct/top_1_total, top_3_correct/top_3_total

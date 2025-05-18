@@ -83,6 +83,9 @@ packages=(
     "wheel==0.41.2"
     "wrapt==1.15.0"
     "zipp==3.17.1"
+    "einops==0.8.0"
+    "open_clip_torch==2.30.0"
+    "timm==1.0.13"
 )
 
 # Loop through the list and install each package

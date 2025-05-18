@@ -11,6 +11,10 @@ sys.path.append("..")
 from models.dinov2_wrapper import DINOv2VideoWrapper
 from models.recurrent_wrapper import RecurrentWrapper
 from models.recurrent_decoder import RecurrentDecoder
+from models.bioCLIP_wrapper import BioCLIPVideoWrapper
+from models.MegaDescriptor_wrapper import MegaDescriptorVideoWrapper
+from models.ViViT_wrapper import ViViTWrapper
+from models.TimeSformer_wrapper import TimeSformerWrapper
 
 import transformers
 from transformers import AutoModel
@@ -64,6 +68,15 @@ def dino_model_load(
     )
     return dino
 
+def megadescriptors_model_load(
+    model_name="facebook/dino-vits16", output_dim=None, forward_strat: str="cat",
+    sequence_length=None, num_frames: int=1, dropout_rate=0.1
+):
+    megadescriptor = DINOv2VideoWrapper(
+         dino_model_name=dino_model_name, output_dim=output_dim, forward_strat=forward_strat, 
+         sequence_length=sequence_length, num_frames=num_frames, dropout_rate=dropout_rate
+    )
+
 def recurrent_model_perceiver_load(
     perceiver_config, dino_model_name="facebook/dinov2-base", dropout_rate=0.1, freeze_image_model=True, is_append_avg_emb=False
 ):
@@ -85,6 +98,65 @@ def recurrent_model_perceiver_loadv2(
         is_append_avg_emb=is_append_avg_emb, type_="v2"
     )
     return recurrent_model
+
+def LSTM_model_load(
+    perceiver_config, dino_model_name="facebook/dinov2-base", dropout_rate=0.1, freeze_image_model=True, is_append_avg_emb=False
+):
+    recurrent_model = RecurrentWrapper(
+        perceiver_config=perceiver_config, model_name=dino_model_name, 
+        dropout_rate=dropout_rate, freeze_image_model=freeze_image_model,
+        is_append_avg_emb=is_append_avg_emb, type_="", recurrent_type="lstm"
+    )
+    return recurrent_model
+
+def GRU_model_load(
+    perceiver_config, dino_model_name="facebook/dinov2-base", dropout_rate=0.1, freeze_image_model=True, is_append_avg_emb=False
+):
+    recurrent_model = RecurrentWrapper(
+        perceiver_config=perceiver_config, model_name=dino_model_name, 
+        dropout_rate=dropout_rate, freeze_image_model=freeze_image_model,
+        is_append_avg_emb=is_append_avg_emb, type_="", recurrent_type="gru"
+    )
+    return recurrent_model
+
+
+def bioclip_model_load(
+    model_name="hf-hub:imageomics/bioclip", output_dim=None, forward_strat: str="cls", 
+    sequence_length=None, num_frames: int=1, dropout_rate=0.1, checkpoint_path=None
+):
+    bioclip = BioCLIPVideoWrapper(
+        model_name=model_name, output_dim=output_dim, forward_strat=forward_strat, 
+        sequence_length=sequence_length, num_frames=num_frames, dropout_rate=dropout_rate, 
+        checkpoint_path=checkpoint_path
+    )
+    return bioclip
+
+def megadescriptors_model_load(
+    model_name="hf-hub:BVRA/MegaDescriptor-T-224", output_dim=None, forward_strat: str="cat",
+    sequence_length=None, num_frames: int=1, dropout_rate=0.1, checkpoint_path=None
+):
+    megadescriptor = MegaDescriptorVideoWrapper(
+        model_name=model_name, output_dim=output_dim, forward_strat=forward_strat, 
+        sequence_length=sequence_length, num_frames=num_frames, dropout_rate=dropout_rate, 
+        checkpoint_path=checkpoint_path
+    )
+    return megadescriptor
+
+def vivit_model_load(
+    model_name="google/vivit-b-16x2-kinetics400", output_dim=None, dropout_rate=0.1
+):
+    vivit = ViViTWrapper(
+        vivit_model_name=model_name, output_dim=output_dim, dropout_rate=dropout_rate
+    )
+    return vivit
+
+def timesformer_model_load(
+    model_name="facebook/timesformer-base-finetuned-k400", output_dim=None, dropout_rate=0.1
+):
+    timesformer = TimeSformerWrapper(
+        timesformer_model_name=model_name, output_dim=output_dim, dropout_rate=dropout_rate
+    )
+    return timesformer
 
 def image_model_load(model_type, embed_dim, training=False):
     import torchvision.models as models
@@ -109,17 +181,20 @@ def image_model_load(model_type, embed_dim, training=False):
     if "ResNet" in model_type:
         if training:
             # Freeze all the layers in the model
-            for param in model.parameters():
-                param.requires_grad = False
+            #for param in model.parameters():
+            #    param.requires_grad = False
+            for name, param in model.named_parameters():
+                if not (name.startswith("layer4") or name.startswith("avgpool") or name.startswith("fc")):
+                    param.requires_grad = False
         
         model.fc = nn.Sequential(nn.Linear(model.fc.in_features, 2048),nn.ReLU(),nn.Linear(2048,embed_dim))
 
         if training:
             init_weights(model.fc)
     else:
-        if training:
-            for param in model.features.parameters():
-                param.requires_grad = False
+        #if training:
+        #    for param in model.features.parameters():
+        #        param.requires_grad = False
 
         model.classifier = nn.Sequential(
             model.classifier[0], 
@@ -132,6 +207,13 @@ def image_model_load(model_type, embed_dim, training=False):
 
         if training:
             init_weights(model.classifier)
+            # Freeze all parameters except classifier, avgpool, and features[24:30]
+            for name, param in model.named_parameters():
+                if not (name.startswith("classifier") or name.startswith("avgpool") or name.startswith("features.24") or
+                        name.startswith("features.25") or name.startswith("features.26") or name.startswith("features.27") or
+                        name.startswith("features.28") or name.startswith("features.29") or name.startswith("features.30")):
+                    param.requires_grad = False
+            
     return model
 
 def load_model_from_checkpoint(checkpoint_path: str):
@@ -176,6 +258,23 @@ def load_model_from_checkpoint(checkpoint_path: str):
             num_frames=num_frames, 
             dropout_rate=dropout_rate
         )
+
+        if num_frames == 1:
+            # Freeze all parameters
+            for param in model.parameters(): # TODO load model functin.
+                param.requires_grad = False
+
+            # Unfreeze last two layers of the transformer encoder
+            for block in model.dino.encoder.layer[-2:]:
+                for param in block.parameters():
+                    param.requires_grad = True
+
+            # Unfreeze final layers (layernorm, linear, dropout)
+            for param in model.dino.layernorm.parameters():
+                param.requires_grad = True
+
+            for param in model.linear.parameters():
+                param.requires_grad = True
         
     elif model_type == 'recurrent' or model_type == "recurrent_perceiver":
         # Extract recurrent model specific parameters
@@ -233,6 +332,155 @@ def load_model_from_checkpoint(checkpoint_path: str):
             freeze_image_model=freeze_image_model,
             is_append_avg_emb=is_append_avg_emb
         )
+    elif model_type == "LSTM":
+        # Extract recurrent model specific parameters
+        perceiver_config = {
+            "raw_input_dim": convert_none_str_to_none(get_with_print(model_details, 'raw_input_dim', 384)),
+            "embedding_dim": convert_none_str_to_none(get_with_print(model_details, 'embedding_dim', 384)),
+            "latent_dim": convert_none_str_to_none(get_with_print(model_details, 'latent_dim', 384)),
+            "num_heads": convert_none_str_to_none(get_with_print(model_details, 'num_heads', 12)),
+            "num_latents": convert_none_str_to_none(get_with_print(model_details, 'num_latents', 512)),
+            "num_tf_layers": convert_none_str_to_none(get_with_print(model_details, 'num_tf_layers', 2)),
+            "dropout": convert_none_str_to_none(get_with_print(model_details, 'dropout_rate', 0.1)),
+            "output_dim": convert_none_str_to_none(get_with_print(model_details, 'output_dim', 384)),
+            "use_raw_input": convert_none_str_to_none(get_with_print(model_details, 'use_raw_input', True)),
+            "use_embeddings": convert_none_str_to_none(get_with_print(model_details, 'use_embeddings', True)),
+            "flatten_channels": convert_none_str_to_none(get_with_print(model_details, 'flatten_channels', False)),
+        }
+
+        dino_model_name = convert_none_str_to_none(get_with_print(model_details, 'dino_model_name', 'facebook/dinov2-small'))
+        dropout_rate = get_with_print(model_details, 'dropout_rate', 0.1)
+        freeze_image_model = get_with_print(model_details, 'freeze_image_model', True)
+        is_append_avg_emb = get_with_print(model_details, 'is_append_avg_emb', False)
+
+        model = LSTM_model_load(
+            perceiver_config=perceiver_config, 
+            dino_model_name=dino_model_name, 
+            dropout_rate=dropout_rate, 
+            freeze_image_model=freeze_image_model,
+            is_append_avg_emb=is_append_avg_emb
+        )
+    elif model_type == "GRU":
+        # Extract recurrent model specific parameters
+        perceiver_config = {
+            "raw_input_dim": convert_none_str_to_none(get_with_print(model_details, 'raw_input_dim', 384)),
+            "embedding_dim": convert_none_str_to_none(get_with_print(model_details, 'embedding_dim', 384)),
+            "latent_dim": convert_none_str_to_none(get_with_print(model_details, 'latent_dim', 384)),
+            "num_heads": convert_none_str_to_none(get_with_print(model_details, 'num_heads', 12)),
+            "num_latents": convert_none_str_to_none(get_with_print(model_details, 'num_latents', 512)),
+            "num_tf_layers": convert_none_str_to_none(get_with_print(model_details, 'num_tf_layers', 2)),
+            "dropout": convert_none_str_to_none(get_with_print(model_details, 'dropout_rate', 0.1)),
+            "output_dim": convert_none_str_to_none(get_with_print(model_details, 'output_dim', 384)),
+            "use_raw_input": convert_none_str_to_none(get_with_print(model_details, 'use_raw_input', True)),
+            "use_embeddings": convert_none_str_to_none(get_with_print(model_details, 'use_embeddings', True)),
+            "flatten_channels": convert_none_str_to_none(get_with_print(model_details, 'flatten_channels', False)),
+        }
+
+        dino_model_name = convert_none_str_to_none(get_with_print(model_details, 'dino_model_name', 'facebook/dinov2-small'))
+        dropout_rate = get_with_print(model_details, 'dropout_rate', 0.1)
+        freeze_image_model = get_with_print(model_details, 'freeze_image_model', True)
+        is_append_avg_emb = get_with_print(model_details, 'is_append_avg_emb', False)
+
+        model = GRU_model_load(
+            perceiver_config=perceiver_config, 
+            dino_model_name=dino_model_name, 
+            dropout_rate=dropout_rate, 
+            freeze_image_model=freeze_image_model,
+            is_append_avg_emb=is_append_avg_emb
+        )
+    elif model_type == "bioclip":
+        # Extract BioCLIP model specific parameters from YAML
+        model_name = convert_none_str_to_none(get_with_print(model_details, 'model_name', 'hf-hub:imageomics/bioclip'))
+        output_dim = convert_none_str_to_none(get_with_print(model_details, 'output_dim', None))
+        forward_strat = convert_none_str_to_none(get_with_print(model_details, 'forward_strat', 'cls'))
+        sequence_length = convert_none_str_to_none(get_with_print(model_details, 'sequence_length', None))
+        num_frames = convert_none_str_to_none(get_with_print(model_details, 'num_frames', 1))
+        dropout_rate = convert_none_str_to_none(get_with_print(model_details, 'dropout_rate', 0.1))
+        checkpoint_path = convert_none_str_to_none(get_with_print(model_details, 'checkpoint_path', None))
+
+        # Call bioclip_model_load with the extracted parameters
+        model = bioclip_model_load(
+            model_name=model_name, 
+            output_dim=output_dim, 
+            forward_strat=forward_strat, 
+            sequence_length=sequence_length, 
+            num_frames=num_frames, 
+            dropout_rate=dropout_rate, 
+            checkpoint_path=checkpoint_path
+        )
+
+        for name, param in model.named_parameters():
+            param.requires_grad = False
+
+        # Unfreeze last two layers of visual transformer
+        for block in model.model.visual.transformer.resblocks[-2:]:
+            for param in block.parameters():
+                param.requires_grad = True
+
+        # Unfreeze final layers (linear, dropout)
+        for param in model.linear.parameters():
+            param.requires_grad = True
+
+        # Unfreeze ln_post layer
+        model.model.visual.ln_post.weight.requires_grad = True
+        model.model.visual.ln_post.bias.requires_grad = True
+
+    elif model_type == "megadescriptor":
+        # Extract MegaDescriptor model specific parameters from YAML
+        model_name = convert_none_str_to_none(get_with_print(model_details, 'model_name', 'hf-hub:BVRA/MegaDescriptor-T-224'))
+        output_dim = convert_none_str_to_none(get_with_print(model_details, 'output_dim', None))
+        forward_strat = convert_none_str_to_none(get_with_print(model_details, 'forward_strat', 'cat'))
+        sequence_length = convert_none_str_to_none(get_with_print(model_details, 'sequence_length', None))
+        num_frames = convert_none_str_to_none(get_with_print(model_details, 'num_frames', 1))
+        dropout_rate = convert_none_str_to_none(get_with_print(model_details, 'dropout_rate', 0.1))
+        checkpoint_path = convert_none_str_to_none(get_with_print(model_details, 'checkpoint_path', None))
+
+        # Call megadescriptors_model_load with the extracted parameters
+        model = megadescriptors_model_load(
+            model_name=model_name, 
+            output_dim=output_dim, 
+            forward_strat=forward_strat, 
+            sequence_length=sequence_length, 
+            num_frames=num_frames, 
+            dropout_rate=dropout_rate, 
+            checkpoint_path=checkpoint_path
+        )
+
+        for name, param in model.named_parameters():
+            param.requires_grad = False
+
+        # Freeze all layers except for the last SwinTransformerStage (model.layers.3), norm, head, and linear layers
+        for name, param in model.named_parameters():
+            if (name.startswith("model.layers.3") or 
+                    name.startswith("model.norm") or 
+                    name.startswith("model.head") or 
+                    name.startswith("linear")):
+                param.requires_grad = True
+
+    elif model_type == "vivit":
+        # Extract ViViT model specific parameters from YAML
+        model_name = convert_none_str_to_none(get_with_print(model_details, 'model_name', 'google/vivit-b-16x2-kinetics400'))
+        output_dim = convert_none_str_to_none(get_with_print(model_details, 'output_dim', None))
+        dropout_rate = convert_none_str_to_none(get_with_print(model_details, 'dropout_rate', 0.1))
+
+        # Call vivit_model_load with the extracted parameters
+        model = vivit_model_load(
+            model_name=model_name, 
+            output_dim=output_dim, 
+            dropout_rate=dropout_rate
+        )
+    elif model_type == "timesformer":
+        # Extract TimeSformer model specific parameters from YAML
+        model_name = convert_none_str_to_none(get_with_print(model_details, 'model_name', 'facebook/timesformer-base-finetuned-k400'))
+        output_dim = convert_none_str_to_none(get_with_print(model_details, 'output_dim', None))
+        dropout_rate = convert_none_str_to_none(get_with_print(model_details, 'dropout_rate', 0.1))
+
+        # Call timesformer_model_load with the extracted parameters
+        model = timesformer_model_load(
+            model_name=model_name, 
+            output_dim=output_dim, 
+            dropout_rate=dropout_rate
+        )
     elif model_type == 'recurrent_decoder':
         print(f"model_details: {model_details}")
         model = RecurrentDecoder(
@@ -257,7 +505,7 @@ def load_model_from_checkpoint(checkpoint_path: str):
     
     return model
 
-if __name__ == "__main__": # TODO: test below
+if __name__ == "__main__":
     # test both models
     #dino_model = dino_model_load()
     #recurrent_model = recurrent_model_perceiver_load()

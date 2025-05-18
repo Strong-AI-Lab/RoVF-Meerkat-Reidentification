@@ -1,0 +1,50 @@
+dataloader_details:
+  K: 20
+  apply_mask_percentage: 0.5
+  clips_directory: Dataset/meerkat_h5files/clips/
+  cooccurrences_filepath: Dataset/meerkat_h5files/Cooccurrences.json
+  is_override: true
+  mask_path: Dataset/meerkat_h5files/masks/meerkat_masks.pkl
+  mode: positive_negative
+  num_frames: 32
+  override_value: 5000
+  total_frames: 20
+  transformations:
+  - random_resized_crop
+  - horizontal_flip
+  - gaussian_blur
+  - color_jitter
+  zfill_num: 4
+model_details:
+  dropout_rate: 0.1
+  forward_strat: cls
+  model_name: google/vivit-b-16x2-kinetics400
+  model_type: vivit
+  num_frames: 32
+  output_dim: 384
+  sequence_length: null
+training_details:
+  accumulation_steps: 10
+  anchor_dino_model: null
+  anchor_function_details:
+    similarity_measure: euclidean_distance
+    type: hard
+  batch_size: 3
+  clip_value: null
+  criterion_details:
+    margin: 1.0
+    name: triplet_margin_loss
+    p: 2
+  epochs: 1
+  log_directory: results/hyperparameter_search/vivit/50_50/aug/
+  optimizer_details:
+    lr: 0.0001
+    name: adamw
+    weight_decay: 0.01
+  scheduler_details:
+    decay_steps: 4750
+    end_lr: 0.0001
+    max_lr: 0.005
+    name: warmup_cosine_decay_scheduler
+    start_lr: 0.001
+    warmup_steps: 250
