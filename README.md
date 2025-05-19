@@ -10,21 +10,12 @@ This repository contains the codebase for the paper **RoVF for Animal Re-identif
 > Recent advances in deep learning have significantly improved the accuracy and scalability of animal re-identification methods by automating the extraction of subtle distinguishing features from images and videos. This enables large-scale non-invasive monitoring of animal populations. We propose a segmentation pipeline and a re-identification model to re-identify animals without ground-truth IDs. The segmentation pipeline segments animals from the background based on their bounding boxes using the DINOv2 and segment anything model 2 (SAM2) foundation models. For re-identification, we introduce a method called recurrence over video frames (RoVF), which uses a recurrent component based on the Perceiver transformer on top of a DINOv2 image model to iteratively construct embeddings from video frames. We report the performance of the proposed segmentation pipeline and re-identification model using video datasets of meerkats and polar bears (PolarBearVidID). The proposed segmentation model achieved high accuracy (94.56% and 97.37%) and IoU (73.94% and 93.08%) for meerkats and polar bears, respectively. We found that RoVF outperformed frame- and video-based baselines, achieving 46.5% and 55% top-1 accuracy on masked test sets for meerkats and polar bears, respectively. These methods show promise in reducing the annotation burden in future individual-based ecological studies. The code is available at [https://github.com/Strong-AI-Lab/RoVF-Meerkat-Reidentification](https://github.com/Strong-AI-Lab/RoVF-Meerkat-Reidentification).
 
 ## Overview
-- [TODO list](#todo-list)
 - [Installation](#installation)
 - [Downloading the datasets](#downloading-the-datasets)
 - [Background masking](#background-masking)
 - [Re-identification](#re-identification)
 - [Folder structure](#folder-structure)
 - [Acknowledgments](#acknowledgements)
-
-## TODO list
-We are still updating this repository, and in particular, we plan to make the following changes:
-* Improve this README. 
-* Add segmentation evaluation code.
-* Add some improvements to the segmentation code and documentation.
-* Update comments/documentation for all files.
-* Move code to get pre-trained model results into main.py
 
 ## Installation
 
