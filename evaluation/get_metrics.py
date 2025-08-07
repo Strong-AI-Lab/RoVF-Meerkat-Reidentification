@@ -48,6 +48,28 @@ def majority_vote(ranks_list):
     majority_rank = vote_counts.most_common(1)[0][0]
     return majority_rank
 
+def compute_aggregated_top3_accuracy(ranks_per_frame, ground_truth):
+    """
+    Aggregate voting approach:
+    1. Collect all top-3 votes from all frames
+    2. Count votes for each candidate
+    3. Take the 3 most-voted candidates as final top-3
+    4. Check if ground truth is in that final top-3
+    """
+    # Collect all top-3 candidates from all frames
+    all_votes = []
+    for ranks in ranks_per_frame:
+        if ranks and len(ranks) >= 3:
+            all_votes.extend(ranks[:3])  # Add each frame's top-3 candidates
+    assert all_votes, "No votes collected for top-3 aggregation"
+    # Count votes for each candidate
+    from collections import Counter
+    vote_counts = Counter(all_votes)
+    # Get the 3 most voted candidates (our final top-3)
+    final_top3_candidates = [candidate for candidate, count in vote_counts.most_common(3)]
+    # Check if ground truth is in our final top-3
+    return 1 if ground_truth in final_top3_candidates else 0
+
 def get_metrics(models, df, img_maj_vote=False):
     """
     Compute top-1, top-3 accuracy and the number of unique elements for each model.
@@ -132,11 +154,9 @@ def get_metrics(models, df, img_maj_vote=False):
                         majority_top1 = majority_vote(valid_votes)
                         results[k, idx + img_idx, 0] = 1 if majority_top1 in [0, 1] else 0
                         
-                        # Check if majority_top1 is in the top-3 for most frames
-                        top3_votes = []
-                        for ranks in ranks_per_frame:
-                            top3_votes.append(1 if (ranks and majority_top1 in ranks[:3]) else 0)
-                        results[k, idx + img_idx, 1] = 1 if sum(top3_votes) > len(top3_votes) / 2 else 0
+                        # Use aggregated voting for top-3 accuracy
+                        ground_truth = 1 if img_idx == 0 else 0  # Ground truth is the other image
+                        results[k, idx + img_idx, 1] = compute_aggregated_top3_accuracy(ranks_per_frame, ground_truth)
                     else:
                         results[k, idx + img_idx, 0] = 0
                         results[k, idx + img_idx, 1] = 0
