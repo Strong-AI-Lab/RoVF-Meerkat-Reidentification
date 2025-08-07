@@ -124,13 +124,19 @@ def main(args):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    # Backwards compatibility: if dino_model_name is provided but pre_trained_model is None,
+    # use dino_model_name and set model_type to dino
+    if args.dino_model_name and args.pre_trained_model is None:
+        args.pre_trained_model = args.dino_model_name
+        args.model_type = "dino"
+
     if args.model_type == "dino":
         model = dino_model_load(
             dino_model_name=args.pre_trained_model, 
             output_dim=args.output_dim, 
             forward_strat=args.forward_strat, 
             sequence_length=args.sequence_length, 
-            num_frames=1, 
+            num_frames=args.model_num_frames, 
             dropout_rate=args.dropout_rate
         )
     elif args.model_type == "bioclip":
@@ -139,7 +145,7 @@ def main(args):
             output_dim=args.output_dim, 
             forward_strat=args.forward_strat, 
             sequence_length=args.sequence_length,
-            num_frames=1, # hardcoded image model
+            num_frames=args.model_num_frames, # now configurable via command line
             dropout_rate=args.dropout_rate,
             checkpoint_path=None
         )
@@ -149,7 +155,7 @@ def main(args):
             output_dim=args.output_dim, 
             forward_strat=args.forward_strat, 
             sequence_length=args.sequence_length, 
-            num_frames=1, # hardcode 
+            num_frames=args.model_num_frames, # now configurable via command line
             dropout_rate=args.dropout_rate,
             checkpoint_path=None
         )
@@ -250,6 +256,7 @@ if __name__ == "__main__":
     
     parser.add_argument("--model_type", type=str, default="dino", help="Model type")
     parser.add_argument("--pre_trained_model", type=str, default=None, help="Path to pre-trained model")
+    parser.add_argument("--model_num_frames", type=int, default=1, help="Number of frames for model (different from dataloader num_frames)")
     parser.add_argument("--image_maj_vote", action="store_true", help="Whether to use image majority vote")
 
     args = parser.parse_args()

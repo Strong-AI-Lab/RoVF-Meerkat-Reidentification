@@ -260,7 +260,7 @@ if __name__ == "__main__":
     #forward_avg_test(output_dim=50)
     #forward_max_test(output_dim=50)
 
-    cls_test(output_dim=None)
+    #cls_test(output_dim=None)
     #cls_test(output_dim=50)
 
-    #print_model_architecture()
+    print_model_architecture()

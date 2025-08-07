@@ -1,19 +1,19 @@
 #!/bin/bash
 
-# Base directory
-BASE_DIR="/data/kkno604/github/RoVF-meerkat-reidentification"
+# Base directory - go up one level since we're in the evaluation folder
+BASE_DIR=".."
 
 # Array of forward strategies
 forward_strats=("cls")
 
-# Array of number of frames (for DINO)
+# Array of number of frames (for image majority voting, load 10 frames to vote on)
 num_frames=(10)
 
 # Array for mask options
 mask_options=("with_mask") # without_mask
 
 #--------------------------------------------------------------------------------
-# Additional models (megadescriptor & bioclip) - use 10 frames and image_maj_vote
+# Additional models (megadescriptor & bioclip) - use 1 frame and image_maj_vote
 extra_models=("megadescriptor" "bioclip" "dino")
 
 megadescriptor_pretrained_models=("hf-hub:BVRA/MegaDescriptor-T-224" "hf-hub:BVRA/MegaDescriptor-S-224" "hf-hub:BVRA/MegaDescriptor-B-224" "hf-hub:BVRA/MegaDescriptor-L-224")
@@ -60,13 +60,14 @@ run_embedding() {
     local load_masks_flag=""
     [ "$mask_option" == "with_mask" ] && load_masks_flag="--load_masks"
 
-    python ${BASE_DIR}/evaluation/get_embeddings.py \
+    python ./get_embeddings.py \
         $load_masks_flag \
         $extra_flags \
         --mask_path "$mask_path" \
         --cooccurrences_filepath "$cooccurrences" \
         --clips_directory "$clips_dir" \
         --num_frames "$frames" \
+        --model_num_frames 1 \
         --forward_strat "$strat" \
         --output_file "${output_dir}/${name}.pkl" \
         --K 20 \
@@ -78,7 +79,6 @@ run_embedding() {
         --image_maj_vote
 }
 
-#: '
 # Generate embeddings for Meerkat dataset 
 for model in "${extra_models[@]}"; do
     pretrained_models_var="${model}_pretrained_models[@]"
@@ -95,11 +95,8 @@ for model in "${extra_models[@]}"; do
         done
     done
 done
-#'
 
-: '
 # Generate embeddings for Polar Bears dataset 
-
 for model in "${extra_models[@]}"; do
     pretrained_models_var="${model}_pretrained_models[@]"
     pretrained_models=("${!pretrained_models_var}")
@@ -115,6 +112,5 @@ for model in "${extra_models[@]}"; do
         done
     done
 done
-'
 
 echo "Embedding generation complete!"

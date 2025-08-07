@@ -300,6 +300,6 @@ if __name__ == "__main__":
     #forward_max_test(output_dim=50)
 
     #test_cls(1000)
-    test_cls(None)
+    #test_cls(None)
 
-    #print_model_architecture()
+    print_model_architecture()
