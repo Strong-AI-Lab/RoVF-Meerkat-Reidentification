@@ -4,7 +4,8 @@
 BASE_DIR=".."
 
 # Array of MegaDescriptor model names
-megadescriptor_models=("hf-hub:BVRA/MegaDescriptor-L-224" "hf-hub:BVRA/MegaDescriptor-B-224" "hf-hub:BVRA/MegaDescriptor-S-224", "hf-hub:BVRA/MegaDescriptor-T-224")
+#megadescriptor_models=("hf-hub:BVRA/MegaDescriptor-L-224" "hf-hub:BVRA/MegaDescriptor-B-224" "hf-hub:BVRA/MegaDescriptor-S-224" "hf-hub:BVRA/MegaDescriptor-T-224")
+megadescriptor_models=("hf-hub:BVRA/MegaDescriptor-S-224")
 
 # Array of forward strategies (only average and max, not cls)
 forward_strats=("average" "max")

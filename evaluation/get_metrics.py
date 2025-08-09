@@ -461,7 +461,7 @@ def get_megadescriptor_results_polarbears():
 
 def get_image_model_results_meerkat():
     models = [
-        "../results/pre_trained_model/bioclip_hf_hub_imageomics_bioclip_/bioclip_cls_10frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/bioclip_hf_hub_imageomics_bioclip_/bioclip_cls_10frames_meerkat_with_mask.pkl", #0
         "../results/pre_trained_model/dino_facebook_dinov2_base_/dinov2-base_cls_10frames_meerkat_with_mask.pkl",
         "../results/pre_trained_model/dino_facebook_dinov2_giant_/dinov2-giant_cls_10frames_meerkat_with_mask.pkl",
         "../results/pre_trained_model/dino_facebook_dinov2_large_/dinov2-large_cls_10frames_meerkat_with_mask.pkl",
@@ -469,7 +469,21 @@ def get_image_model_results_meerkat():
         "../results/pre_trained_model/megadescriptor_hf_hub_BVRA_MegaDescriptor_B_224_/MegaDescriptor-B-224_cls_10frames_meerkat_with_mask.pkl",
         "../results/pre_trained_model/megadescriptor_hf_hub_BVRA_MegaDescriptor_L_224_/MegaDescriptor-L-224_cls_10frames_meerkat_with_mask.pkl",
         "../results/pre_trained_model/megadescriptor_hf_hub_BVRA_MegaDescriptor_S_224_/MegaDescriptor-S-224_cls_10frames_meerkat_with_mask.pkl",
-        "../results/pre_trained_model/megadescriptor_hf_hub_BVRA_MegaDescriptor_T_224_/MegaDescriptor-T-224_cls_10frames_meerkat_with_mask.pkl"
+        "../results/pre_trained_model/megadescriptor_hf_hub_BVRA_MegaDescriptor_T_224_/MegaDescriptor-T-224_cls_10frames_meerkat_with_mask.pkl",
+        # Full model training results
+        "../results/full_model_training/bioclip_meerkat/checkpoint_epoch_5_embeddings_mask.pkl", #9
+        "../results/full_model_training/imagedino_b_meerkat/checkpoint_epoch_7_embeddings_mask.pkl",
+        "../results/full_model_training/imagedino_s_meerkat/checkpoint_epoch_2_embeddings_mask.pkl",
+        "../results/full_model_training/megadescriptor_b_meerkat/checkpoint_epoch_19_embeddings_mask.pkl", #12
+        "../results/full_model_training/megadescriptor_l_meerkat/checkpoint_epoch_20_embeddings_mask.pkl",
+        "../results/full_model_training/megadescriptor_s_meerkat/checkpoint_epoch_1_embeddings_mask.pkl",
+        "../results/full_model_training/megadescriptor_t_meerkat/checkpoint_epoch_3_embeddings_mask.pkl",
+        "../results/full_model_training/resnet18_meerkat/checkpoint_epoch_2_embeddings_mask.pkl",
+        #"../results/full_model_training/resnet18_meerkat/checkpoint_epoch_43_embeddings_mask.pkl",
+        "../results/full_model_training/resnet50_meerkat/checkpoint_epoch_2_embeddings_mask.pkl",
+        "../results/full_model_training/resnet152_meerkat/checkpoint_epoch_19_embeddings_mask.pkl",
+        #"../results/full_model_training/resnet152_meerkat/checkpoint_epoch_50_embeddings_mask.pkl",
+        "../results/full_model_training/vgg-16_meerkat/checkpoint_epoch_11_embeddings_mask.pkl"
     ]
 
     # Load dataframe of test examples
@@ -486,15 +500,29 @@ def get_image_model_results_meerkat():
 
 def get_image_model_results_polarbears():
     models = [
-        "../results/pre_trained_model/bioclip_hf_hub_imageomics_bioclip_/bioclip_cls_10frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/bioclip_hf_hub_imageomics_bioclip_/bioclip_cls_10frames_polarbears_with_mask.pkl", #0
         "../results/pre_trained_model/dino_facebook_dinov2_base_/dinov2-base_cls_10frames_polarbears_with_mask.pkl",
         "../results/pre_trained_model/dino_facebook_dinov2_giant_/dinov2-giant_cls_10frames_polarbears_with_mask.pkl",
         "../results/pre_trained_model/dino_facebook_dinov2_large_/dinov2-large_cls_10frames_polarbears_with_mask.pkl",
-        "../results/pre_trained_model/dino_facebook_dinov2_small_/dinov2-small_cls_10frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/dino_facebook_dinov2_small_/dinov2-small_cls_10frames_polarbears_with_mask.pkl", #4
         "../results/pre_trained_model/megadescriptor_hf_hub_BVRA_MegaDescriptor_B_224_/MegaDescriptor-B-224_cls_10frames_polarbears_with_mask.pkl",
         "../results/pre_trained_model/megadescriptor_hf_hub_BVRA_MegaDescriptor_L_224_/MegaDescriptor-L-224_cls_10frames_polarbears_with_mask.pkl",
         "../results/pre_trained_model/megadescriptor_hf_hub_BVRA_MegaDescriptor_S_224_/MegaDescriptor-S-224_cls_10frames_polarbears_with_mask.pkl",
-        "../results/pre_trained_model/megadescriptor_hf_hub_BVRA_MegaDescriptor_T_224_/MegaDescriptor-T-224_cls_10frames_polarbears_with_mask.pkl"
+        "../results/pre_trained_model/megadescriptor_hf_hub_BVRA_MegaDescriptor_T_224_/MegaDescriptor-T-224_cls_10frames_polarbears_with_mask.pkl",
+        # Full model training results
+        "../results/full_model_training/bioclip_polarbear/checkpoint_epoch_2_embeddings_mask.pkl", #9
+        "../results/full_model_training/imagedino_b_polarbear/checkpoint_epoch_10_embeddings_mask.pkl",
+        "../results/full_model_training/imagedino_s_polarbear/checkpoint_epoch_12_embeddings_mask.pkl",
+        "../results/full_model_training/megadescriptor_b_polarbear/checkpoint_epoch_4_embeddings_mask.pkl", # 12
+        "../results/full_model_training/megadescriptor_l_polarbear/checkpoint_epoch_16_embeddings_mask.pkl",
+        "../results/full_model_training/megadescriptor_s_polarbear/checkpoint_epoch_13_embeddings_mask.pkl",
+        "../results/full_model_training/megadescriptor_t_polarbear/checkpoint_epoch_7_embeddings_mask.pkl",
+        "../results/full_model_training/resnet18_polarbear/checkpoint_epoch_1_embeddings_mask.pkl",
+        #"../results/full_model_training/resnet18_polarbear/checkpoint_epoch_41_embeddings_mask.pkl",
+        "../results/full_model_training/resnet50_polarbear/checkpoint_epoch_1_embeddings_mask.pkl",
+        "../results/full_model_training/resnet152_polarbear/checkpoint_epoch_8_embeddings_mask.pkl",
+        #"../results/full_model_training/resnet152_polarbear/checkpoint_epoch_50_embeddings_mask.pkl",
+        "../results/full_model_training/vgg-16_polarbear/checkpoint_epoch_16_embeddings_mask.pkl"
     ]
 
     # Load dataframe of test examples
@@ -529,6 +557,12 @@ if __name__ == "__main__":
     #main()
     #get_dino_pretrained_results_meerkat()
     #get_dino_pretrained_results_polarbears()
-    get_image_model_results_meerkat()
+    #get_image_model_results_meerkat()
     #get_image_model_results_polarbears()
+
+    #get_megadescriptor_results_meerkat()
+    get_megadescriptor_results_polarbears()
+
+    #get_bioclip_video_results_meerkat()
+    #get_bioclip_video_results_polarbears()
 
