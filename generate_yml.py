@@ -1699,7 +1699,13 @@ def create_full_model_training():
         "results/full_model_training/timesformer_no_mask_aug_meerkat/",
         "results/full_model_training/timesformer_no_mask_aug_polarbear/",
         "results/full_model_training/vivit_no_mask_aug_meerkat/",
-        "results/full_model_training/vivit_no_mask_aug_polarbear/"
+        "results/full_model_training/vivit_no_mask_aug_polarbear/",
+        
+        "results/full_model_training/rovf_st_bioclip_mask_0p5_aug_meerkat/",
+        "results/full_model_training/rovf_st_bioclip_mask_0p5_aug_polarbear/",
+
+        "results/full_model_training/bioclip_video_avg_50_50_0p5_no_aug_meerkat/",
+        "results/full_model_training/bioclip_video_avg_50_50_0p5_no_aug_polarbear/"
     ]
     for path in filepath_list:
         if not os.path.exists(path):
@@ -1713,7 +1719,7 @@ if __name__ == "__main__":
     #create_yaml_config_RoVF_S_af_st()
     #create_yaml_config_LSTM()
     #create_yaml_config_GRU()
-    #create_full_model_training()
+    create_full_model_training()
 
     #create_yaml_config_vivit()
     #create_yaml_config_timesformer()
@@ -1721,4 +1727,4 @@ if __name__ == "__main__":
     #create_yaml_config_bioclip_video()
     #create_yaml_config_megadescriptor_video()
 
-    create_yaml_config_RoVF_S_st_bioclip()
+    #create_yaml_config_RoVF_S_st_bioclip()
