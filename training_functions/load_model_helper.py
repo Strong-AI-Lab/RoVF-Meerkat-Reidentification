@@ -226,7 +226,9 @@ def load_model_from_checkpoint(checkpoint_path: str):
 
     def get_with_print(dictionary, key, default=None):
         if key not in dictionary:
-            print(f"Key '{key}' not found. Using default value: {default}")
+            # Only print when a non-None default is being applied to avoid noisy logs for optional fields
+            if default is not None:
+                print(f"Key '{key}' not found. Using default value: {default}")
             return default
         return dictionary[key]
 
@@ -273,8 +275,9 @@ def load_model_from_checkpoint(checkpoint_path: str):
             for param in model.dino.layernorm.parameters():
                 param.requires_grad = True
 
-            for param in model.linear.parameters():
-                param.requires_grad = True
+            if hasattr(model, "linear") and model.linear is not None:
+                for param in model.linear.parameters():
+                    param.requires_grad = True
         
     elif model_type == 'recurrent' or model_type == "recurrent_perceiver":
         # Extract recurrent model specific parameters
@@ -417,9 +420,10 @@ def load_model_from_checkpoint(checkpoint_path: str):
             for param in block.parameters():
                 param.requires_grad = True
 
-        # Unfreeze final layers (linear, dropout)
-        for param in model.linear.parameters():
-            param.requires_grad = True
+        # Unfreeze final layers (linear, dropout) if present
+        if hasattr(model, "linear") and model.linear is not None:
+            for param in model.linear.parameters():
+                param.requires_grad = True
 
         # Unfreeze ln_post layer
         model.model.visual.ln_post.weight.requires_grad = True
