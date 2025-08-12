@@ -1705,7 +1705,10 @@ def create_full_model_training():
         "results/full_model_training/rovf_st_bioclip_mask_0p5_aug_polarbear/",
 
         "results/full_model_training/bioclip_video_avg_50_50_0p5_no_aug_meerkat/",
-        "results/full_model_training/bioclip_video_avg_50_50_0p5_no_aug_polarbear/"
+        "results/full_model_training/bioclip_video_avg_50_50_0p5_no_aug_polarbear/",
+
+        "results/full_model_training/megadescriptor_b_video_avg_no_mask_1p0_no_aug_meerkat/",
+        "results/full_model_training/megadescriptor_b_video_avg_no_mask_1p0_no_aug_polarbear/"
     ]
     for path in filepath_list:
         if not os.path.exists(path):
