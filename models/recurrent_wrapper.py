@@ -2,6 +2,9 @@ import torch
 import torch.nn as nn
 from transformers import AutoModel
 
+import open_clip
+import timm
+
 import sys
 sys.path.append("..")
 
@@ -9,12 +12,13 @@ from models.perceiver_wrapper import CrossAttention, TransformerEncoder, Transfo
 
 class RecurrentWrapper(nn.Module):
     def __init__(
-        self, perceiver_config: dict, model_name: str, dropout_rate: float = 0.0,
+        self, perceiver_config: dict, model_name: str = "facebook/dinov2-small", dropout_rate: float = 0.0,
         freeze_image_model: bool=True, is_append_avg_emb: bool=False, type_="v1", recurrent_type="perceiver"
     ):
         super(RecurrentWrapper, self).__init__()
 
         self.recurrent_type = recurrent_type
+        self.model_name = model_name
 
         self.gru_linear = None
 
@@ -48,23 +52,102 @@ class RecurrentWrapper(nn.Module):
         else:
             raise ValueError(f"Unsupported recurrent type: {recurrent_type}")
 
-        # Load the DINOv2 model
-        self.image_model = AutoModel.from_pretrained("facebook/dinov2-small")
+        # Load the image model
+        self._is_bioclip = False
+        if "dinov2" in model_name.lower():
+            self.image_model = AutoModel.from_pretrained(model_name, trust_remote_code=True)
+        elif "bioclip" in model_name.lower():
+            assert type_ == "v2", "BioCLIP model is only supported in v2 type."
+            self.image_model, _, _ = open_clip.create_model_and_transforms(model_name)
+            self._is_bioclip = True
+        elif "megadescriptor" in model_name.lower():
+            raise NotImplementedError("MegaDescriptor model is not yet implemented in RecurrentWrapper.")
+            assert type_ == "v2", "MegaDescriptor model is only supported in v2 type."
+            self.image_model = timm.create_model(model_name, pretrained=True)
+
+        # Dropouts
         self.dropout1 = nn.Dropout(dropout_rate)
         self.dropout2 = nn.Dropout(dropout_rate)
 
         self.freeze_image_model = freeze_image_model
         self.is_append_avg_emb = is_append_avg_emb
 
+        # If appending avg embedding, add projector if dims differ (e.g., 768 -> 384)
+        self.append_proj = None
+        if is_append_avg_emb:
+            emb_dim = perceiver_config.get("embedding_dim")
+            out_dim = perceiver_config.get("output_dim")
+            if out_dim is not None and emb_dim is not None and emb_dim != out_dim:
+                self.append_proj = nn.Linear(emb_dim, out_dim)
+
+        # Internal buffer used for BioCLIP hook-based token capture
+        self._prepool_tokens_tmp = None
+
     def reset_latents(self):
         if self.recurrent_type == "perceiver":
             self.recurrence_model.reset_latents()
+
+    # --- BioCLIP token extraction utilities ---
+    def _bioclip_get_tokens(self, images: torch.Tensor, only_patches: bool=False) -> torch.Tensor:
+        """Extract sequence tokens from BioCLIP visual transformer via forward hook.
+        Args:
+            images: FloatTensor (B, C, H, W)
+            only_patches: drop CLS token if True
+        Returns:
+            FloatTensor (B, L, Cdim)
+        """
+        assert self._is_bioclip, "_bioclip_get_tokens should only be used with BioCLIP"
+        model = self.image_model
+
+        def _hook(module, inp, out):
+            self._prepool_tokens_tmp = out
+
+        handle = None
+        try:
+            if hasattr(model.visual, 'transformer') and isinstance(model.visual.transformer, nn.Module):
+                handle = model.visual.transformer.register_forward_hook(_hook)
+            elif hasattr(model.visual, 'ln_post') and isinstance(model.visual.ln_post, nn.Module):
+                handle = model.visual.ln_post.register_forward_hook(_hook)
+            else:
+                raise RuntimeError("Could not hook into BioCLIP visual model to capture tokens.")
+
+            # Trigger forward pass (encode_image) to populate hook output
+            _ = model.encode_image(images)
+            x = self._prepool_tokens_tmp
+            if x is None:
+                raise RuntimeError("Failed to capture BioCLIP tokens from hook.")
+
+            # Normalize to (B, L, C)
+            if x.dim() == 3:
+                if x.size(0) == images.size(0):
+                    tokens = x
+                elif x.size(1) == images.size(0):
+                    tokens = x.permute(1, 0, 2).contiguous()
+                else:
+                    raise RuntimeError(f"Unexpected token shape from BioCLIP hook: {tuple(x.size())}")
+            elif x.dim() == 2:
+                tokens = x.unsqueeze(1)
+            else:
+                raise RuntimeError(f"Unexpected token shape from BioCLIP hook: {tuple(x.size())}")
+
+            if only_patches and tokens.size(1) > 1:
+                tokens = tokens[:, 1:, :]
+
+        finally:
+            if handle is not None:
+                handle.remove()
+            self._prepool_tokens_tmp = None
+
+        return tokens
 
     def image_model_forward(self, video):
         prediction_list = []
         for i in range(video.size(1)):
             frame = video[:,i,:,:,:]
-            frame_output = self.image_model(frame).last_hidden_state
+            if self._is_bioclip:
+                frame_output = self._bioclip_get_tokens(frame)
+            else:
+                frame_output = self.image_model(frame).last_hidden_state
             if self.freeze_image_model:
                 frame_output = frame_output.detach()
             frame_output = self.dropout2(frame_output)
@@ -109,46 +192,58 @@ class RecurrentWrapper(nn.Module):
         frame_list = []
         for i in range(video.size(1)):
             frame = video[:,i,:,:,:]
-            frame_output = self.image_model(frame).last_hidden_state
+            if "dino" in self.model_name.lower():
+                frame_output = self.image_model(frame).last_hidden_state
+            elif "bioclip" in self.model_name.lower():
+                # Use pre-pooling tokens (sequence length ~197) as embeddings
+                frame_output = self._bioclip_get_tokens(frame)
+            elif "megadescriptor" in self.model_name.lower():
+                frame_output = self.image_model(frame).unsqueeze(1)  # [b, dm] -> [b, 1, dm]
+            else:
+                raise ValueError(f"Unsupported model name: {self.model_name}")
+
             if self.freeze_image_model:
                 frame_output = frame_output.detach()
             frame_output = self.dropout2(frame_output)
+
             frame_list.append(frame_output)
 
         stacked_tensors = torch.stack(frame_list, dim=1)
+        #print(f"stacked_tensors.size(): {stacked_tensors.size()}")  # [b, #frames, L, dm]
         avg_image_emb = torch.mean(stacked_tensors, dim=-3)
+        #print(f"avg_image_emb.size(): {avg_image_emb.size()}")  # [b, L, dm]
 
         if self.recurrent_type == "perceiver":
             prediction_list = []
             for i in range(video.size(1)):
                 pred = self.recurrence_model(
-                    raw_input=frame_list[i].permute(0, 2, 3, 1) if self.recurrence_model.use_raw_input else None,
-                    embeddings=frame_list[i] if self.recurrence_model.use_embeddings else None,
+                    raw_input=frame_list[i].permute(0, 2, 3, 1) if hasattr(self.recurrence_model, 'use_raw_input') and self.recurrence_model.use_raw_input else None,
+                    embeddings=frame_list[i] if hasattr(self.recurrence_model, 'use_embeddings') and self.recurrence_model.use_embeddings else None,
                     video_emb=avg_image_emb if i == 0 else None,
                     is_reset_latents=False
                 )
                 prediction_list.append(pred)
             self.reset_latents()
             if self.is_append_avg_emb:
-                return prediction_list[-1] + self.get_average(frame_list)
+                avg_emb = self.get_average(frame_list)
+                if self.append_proj is not None:
+                    avg_emb = self.append_proj(avg_emb)
+                return prediction_list[-1] + avg_emb
             return prediction_list[-1]
         else:
             prediction_list = []
             hidden = None
             for i in range(video.size(1)):
-                # Reshape frame_output to be 3D: [batch_size, seq_len, feature_dim]
-                #print(f"len(frame_list): {len(frame_list)}")
-                #print(frame_list[i].size()) # [batch_size, seq_len, feature_dim]
-                
                 frame_output = torch.mean(frame_list[i], dim=1)
-                #frame_output = frame_output.unsqueeze(1)  # Add sequence dimension
-                #print(F"frame_output.size(): {frame_output.size()}")
                 output, hidden = self.recurrence_model(frame_output, hidden)
                 prediction_list.append(output.squeeze(1))
             if self.gru_linear is not None:
                     prediction_list[-1] = self.gru_linear(prediction_list[-1])
             if self.is_append_avg_emb:
-                return prediction_list[-1] + self.get_average(frame_list)
+                avg_emb = self.get_average(frame_list)
+                if self.append_proj is not None:
+                    avg_emb = self.append_proj(avg_emb)
+                return prediction_list[-1] + avg_emb
             return prediction_list[-1]
 
 def test_perceiver_wrapper():
@@ -229,7 +324,7 @@ def test_lstm():
     print(f"device: {device}")
 
     model = RecurrentWrapper(perceiver_config, dino_model_name, dropout_rate, freeze_image_model, recurrent_type="lstm", is_append_avg_emb=True).to(device)
-    video = torch.randn(2, 8, 3, 224, 224).to(device)
+    video = torch.randn(2, 8, 3, 224, 224).to(device) # (batch_size, num_frames, channels, height, width)
     output = model(video)
     print(f"(lstm) output.size(): {output.size()}")
     print()
@@ -284,6 +379,108 @@ def test_gru():
     print(f"Gradients: {gradients}")
     print()
 
+def test_bioclip():
+    
+    output_dim = 512  # Set to None if you want to test without output_dim
+
+    print(f"BioCLIP test with RecurrentWrapper and output_dim={output_dim}")
+
+    perceiver_config = {
+        "raw_input_dim": 3,
+        "embedding_dim": 768,  # BioCLIP embedding dimension
+        "latent_dim": 384,
+        "num_heads": 8,
+        "num_latents": 257,
+        "num_transformer_layers": 2,
+        "dropout": 0.1,
+        "output_dim": output_dim,
+        "use_raw_input": False,
+        "use_embeddings": True,
+        "flatten_channels": False,
+    }
+    
+    model_name = 'hf-hub:imageomics/bioclip'
+    dropout_rate = 0.1
+    freeze_image_model = True
+
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    num_frames = 8
+    model = RecurrentWrapper(
+        perceiver_config, model_name, dropout_rate, freeze_image_model, 
+        recurrent_type="perceiver", is_append_avg_emb=True, type_="v2"
+    )
+    model.to(device)
+
+    video = torch.randn(2, num_frames, 3, 224, 224).to(device)
+    target = torch.randn(2, output_dim).to(device)
+    criterion = nn.MSELoss()
+
+    output = model(video)
+    print(f"output.size(): {output.size()}")
+
+    loss = criterion(output, target)
+    print(f"Loss: {loss.item()}")
+
+    loss.backward()
+
+    for name, param in model.named_parameters():
+        if param.grad is not None:
+            print(f"Gradient for {name}: {param.grad.norm().item()}")
+        else:
+            print(f"No gradient computed for {name}")
+
+def test_megadescriptor():
+    
+    output_dim = 384  # Set to None if you want to test without output_dim
+
+    print(f"MegaDescriptor test with RecurrentWrapper and output_dim={output_dim}")
+
+    perceiver_config = {
+        "raw_input_dim": 3,
+        "embedding_dim": 768,  # MegaDescriptor embedding dimension
+        "latent_dim": 384,
+        "num_heads": 8,
+        "num_latents": 257,
+        "num_transformer_layers": 2,
+        "dropout": 0.1,
+        "output_dim": output_dim,
+        "use_raw_input": False,
+        "use_embeddings": True,
+        "flatten_channels": False
+    }
+    
+    model_name = 'hf-hub:BVRA/MegaDescriptor-T-224'
+    dropout_rate = 0.1
+    freeze_image_model = True
+
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    num_frames = 8
+    model = RecurrentWrapper(
+        perceiver_config, model_name, dropout_rate, freeze_image_model, 
+        recurrent_type="perceiver", is_append_avg_emb=False, type_="v2"
+    )
+    model.to(device)
+
+    video = torch.randn(2, num_frames, 3, 224, 224).to(device)
+    target = torch.randn(2, output_dim).to(device)
+    criterion = nn.MSELoss()
+
+    output = model(video)
+    print(f"output.size(): {output.size()}")
+
+    loss = criterion(output, target)
+    print(f"Loss: {loss.item()}")
+
+    loss.backward()
+
+    for name, param in model.named_parameters():
+        if param.grad is not None:
+            print(f"Gradient for {name}: {param.grad.norm().item()}")
+        else:
+            print(f"No gradient computed for {name}")
+
 if __name__ == "__main__":
     
     print(f"Perceiver wrapper:\n\n")
@@ -292,4 +489,7 @@ if __name__ == "__main__":
     test_lstm()
     print(f"\n\nGRU:\n\n")
     test_gru()
-
+    print(f"\n\nBioCLIP:\n\n")
+    test_bioclip()
+    #print(f"\n\nMegaDescriptor:\n\n")
+    #test_megadescriptor()

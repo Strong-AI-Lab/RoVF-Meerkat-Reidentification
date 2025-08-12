@@ -1,9 +1,11 @@
 import torch
 import torch.nn as nn
 import open_clip
+import math
 
 class BioCLIPVideoWrapper(nn.Module):
-    def __init__(self, model_name, output_dim, forward_strat: str="cat", sequence_length=None, num_frames: int=1, dropout_rate=0.1, checkpoint_path=None):
+    def __init__(self, model_name, output_dim, forward_strat: str="cat", sequence_length=None, num_frames: int=1, dropout_rate=0.1, checkpoint_path=None,
+                 return_prepool: bool=False, prepool_return_grid: bool=False, prepool_only_patches: bool=False):
         super(BioCLIPVideoWrapper, self).__init__()
         
         # Load the BioCLIP model
@@ -11,6 +13,11 @@ class BioCLIPVideoWrapper(nn.Module):
         self.tokenizer = open_clip.get_tokenizer(model_name)
         if checkpoint_path:
             self.model.load_state_dict(torch.load(checkpoint_path))
+
+        # New pre-pool config
+        self.return_prepool = return_prepool
+        self.prepool_return_grid = prepool_return_grid
+        self.prepool_only_patches = prepool_only_patches
 
         self.forward_strat = forward_strat
         if self.forward_strat not in ["cat", "average", "avg", "mean", "max", "maximum", "cls"]:
@@ -51,6 +58,10 @@ class BioCLIPVideoWrapper(nn.Module):
             video = video.unsqueeze(1)
         assert len(video.size()) == 5, f"video.size(): {video.size()}; expected 5 dimensions (batch, #frames, #channels, height, width)."
 
+        # If requested, return pre-pooling tokens from the image encoder (no temporal aggregation/linear)
+        if self.return_prepool:
+            return self.extract_prepool_tokens(video, return_grid=self.prepool_return_grid, only_patches=self.prepool_only_patches)
+
         cls_outputs = [self.model.encode_image(video[:,i,:,:,:]) for i in range(video.size(1))] # [#frames] [b, dm]
         #print(cls_outputs[0].size()) # b, dm
         num_frames = len(cls_outputs)
@@ -82,6 +93,89 @@ class BioCLIPVideoWrapper(nn.Module):
             linear_output = output_tensor
 
         return linear_output
+
+    # --- New utility: extract token embeddings before pooling/projection ---
+    #@torch.no_grad()
+    def extract_prepool_tokens(self, video, return_grid: bool=False, only_patches: bool=False):
+        """Return transformer token embeddings before pooling/projection.
+        Args:
+            video: (B,T,C,H,W) or (B,C,H,W)
+            return_grid: if True and patch tokens form a square grid, returns (B,T,C,H,W) using patch tokens.
+            only_patches: if True, drop the CLS token from the returned tokens.
+        Returns:
+            If return_grid: FloatTensor (B,T,C,H,W)
+            Else: FloatTensor (B,T,L,C) where L = 1+N (or N if only_patches)
+        """
+        was_4d = False
+        if video.dim() == 4:
+            video = video.unsqueeze(1)
+            was_4d = True
+        assert video.dim() == 5, f"Expected video of shape (B,T,C,H,W) or (B,C,H,W), got {tuple(video.size())}"
+
+        B, T, C, H, W = video.size()
+        tokens_per_frame = []
+
+        def _hook(module, inp, out):
+            # capture the sequence of tokens output by the transformer
+            self._prepool_tokens_tmp = out
+
+        handle = None
+        self._prepool_tokens_tmp = None
+        try:
+            # Prefer hooking the transformer output (sequence of tokens)
+            if hasattr(self.model.visual, 'transformer') and isinstance(self.model.visual.transformer, nn.Module):
+                handle = self.model.visual.transformer.register_forward_hook(_hook)
+            else:
+                # Fallback: try ln_post (may capture CLS-only in some builds)
+                if hasattr(self.model.visual, 'ln_post') and isinstance(self.model.visual.ln_post, nn.Module):
+                    handle = self.model.visual.ln_post.register_forward_hook(_hook)
+                else:
+                    raise RuntimeError("Could not find a module to hook for pre-pooling tokens in BioCLIP visual model.")
+
+            for i in range(T):
+                _ = self.model.encode_image(video[:, i])  # triggers hooks
+                x = self._prepool_tokens_tmp
+                if x is None:
+                    raise RuntimeError("Failed to capture pre-pooling tokens from BioCLIP.")
+                # Normalize to (B, L, C)
+                if x.dim() == 3:
+                    if x.size(0) == B:  # (B,L,C)
+                        seq_tokens = x
+                    elif x.size(1) == B:  # (L,B,C) -> (B,L,C)
+                        seq_tokens = x.permute(1, 0, 2).contiguous()
+                    else:
+                        raise RuntimeError(f"Unexpected token shape from hook: {tuple(x.size())}")
+                elif x.dim() == 2:
+                    seq_tokens = x.unsqueeze(1)  # (B,1,C)
+                else:
+                    raise RuntimeError(f"Unexpected token shape from hook: {tuple(x.size())}")
+
+                if only_patches:
+                    if seq_tokens.size(1) > 1:
+                        seq_tokens = seq_tokens[:, 1:, :]
+                tokens_per_frame.append(seq_tokens)
+        finally:
+            if handle is not None:
+                handle.remove()
+            self._prepool_tokens_tmp = None
+
+        # Stack across time -> (B, T, L, C)
+        tokens = torch.stack(tokens_per_frame, dim=1)  # (B,T,L,C)
+
+        if return_grid:
+            # Convert patch tokens to spatial grid (B,T,C,H,W)
+            if not only_patches and tokens.size(2) > 1:
+                tokens = tokens[:, :, 1:, :]
+            L = tokens.size(2)
+            gh = int(math.sqrt(L))
+            if gh * gh != L:
+                raise ValueError(f"Cannot reshape {L} tokens into a square grid. Set return_grid=False or only_patches=False.")
+            gw = gh
+            # (B,T,L,C) -> (B,T,gh,gw,C) -> (B,T,C,gh,gw)
+            tokens = tokens.view(B, T, gh, gw, -1).permute(0, 1, 4, 2, 3).contiguous()
+            return tokens
+
+        return tokens
 
 def forward_cat_test(output_dim):
     print(f"Concatenation test with output_dim={output_dim}")
@@ -252,6 +346,33 @@ def print_model_architecture():
         print(f"{name}: {param.requires_grad}")
 
 
+# --- New: test pre-pooling tokens ---
+def test_prepool_tokens():
+    print("Testing BioCLIP pre-pooling token extraction...")
+    model_name = 'hf-hub:imageomics/bioclip'
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    B, T = 2, 10
+    video = torch.randn(B, T, 3, 224, 224).to(device)
+
+    # 1) Use utility method
+    model = BioCLIPVideoWrapper(model_name, output_dim=None, num_frames=T).to(device)
+    tokens = model.extract_prepool_tokens(video, return_grid=False, only_patches=False)
+    print(f"tokens (B,T,L,C): {tuple(tokens.size())}")
+
+    # 2) Grid with only patch tokens
+    try:
+        grid = model.extract_prepool_tokens(video, return_grid=True, only_patches=True)
+        print(f"grid (B,T,C,H,W): {tuple(grid.size())}")
+    except Exception as e:
+        print(f"grid reshape not possible: {e}")
+
+    # 3) Via forward opt-in
+    model_pre = BioCLIPVideoWrapper(model_name, output_dim=None, num_frames=T, return_prepool=True).to(device)
+    tokens2 = model_pre(video)
+    print(f"tokens via forward (B,T,L,C) or (B,T,C,H,W): {tuple(tokens2.size())}")
+
+
 if __name__ == "__main__":
     #forward_cat_test(output_dim=None)
     #forward_avg_test(output_dim=None)
@@ -260,7 +381,9 @@ if __name__ == "__main__":
     #forward_avg_test(output_dim=50)
     #forward_max_test(output_dim=50)
 
-    cls_test(output_dim=None)
+    #cls_test(output_dim=None)
     #cls_test(output_dim=50)
+
+    test_prepool_tokens()
 
     #print_model_architecture()

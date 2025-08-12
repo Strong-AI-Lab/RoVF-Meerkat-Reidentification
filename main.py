@@ -445,7 +445,7 @@ def train(yaml_dict, device, ckpt_path):
             "sequence_length": yaml_dict["model_details"]["sequence_length"],
             "num_frames": yaml_dict["model_details"]["num_frames"],
             "dropout_rate": yaml_dict["model_details"]["dropout_rate"],
-            "checkpoint_path": yaml_dict["model_details"]["checkpoint_path"]
+            "checkpoint_path": yaml_dict["model_details"].get("checkpoint_path", None)
         }
         model = model_load_helper(**config)
 
@@ -461,7 +461,7 @@ def train(yaml_dict, device, ckpt_path):
             "sequence_length": yaml_dict["model_details"]["sequence_length"],
             "num_frames": yaml_dict["model_details"]["num_frames"],
             "dropout_rate": yaml_dict["model_details"]["dropout_rate"],
-            "checkpoint_path": yaml_dict["model_details"]["checkpoint_path"]
+            "checkpoint_path": yaml_dict["model_details"].get("checkpoint_path", None)
         }
         model = model_load_helper(**config)
     else:
@@ -520,7 +520,7 @@ def train(yaml_dict, device, ckpt_path):
         optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
 
     scheduler = None
-    if yaml_dict["training_details"]["scheduler_details"]["name"] == "WarmupCosineDecayScheduler":
+    if yaml_dict["training_details"]["scheduler_details"]["name"] in ["WarmupCosineDecayScheduler", "warmup_cosine_decay_scheduler"]:
         from lr_schedulers.cosine_decay import WarmupCosineDecayScheduler as LRScheduler
         scheduler = LRScheduler(
             optimizer=optimizer,
@@ -584,9 +584,6 @@ def train(yaml_dict, device, ckpt_path):
         accumulation_steps=yaml_dict["training_details"]["accumulation_steps"] if "accumulation_steps" in yaml_dict["training_details"] else 1,
         margin=yaml_dict["training_details"]["criterion_details"]["margin"],
     )
-    #TODO: pad with zeros to make the number of frames equal to 32 (or a divisor of 8?)
-    # ViViT is 32
-    # TimeSformer is a divisor of 8
 
 if __name__ == "__main__":
     main()

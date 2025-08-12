@@ -1,14 +1,14 @@
 #!/bin/bash
 
 # Base directory - go up one level since we're in the evaluation folder
-#BASE_DIR="/data/home/kkno604/github/meerkat-repos/RoVF-meerkat-reidentification"
 BASE_DIR=".."
 
-# Array of DINO model names
-dino_models=("facebook/dinov2-small" "facebook/dinov2-base" "facebook/dinov2-large" "facebook/dinov2-giant")
+# Array of MegaDescriptor model names
+#megadescriptor_models=("hf-hub:BVRA/MegaDescriptor-L-224" "hf-hub:BVRA/MegaDescriptor-B-224" "hf-hub:BVRA/MegaDescriptor-S-224" "hf-hub:BVRA/MegaDescriptor-T-224")
+megadescriptor_models=("hf-hub:BVRA/MegaDescriptor-S-224")
 
-# Array of forward strategies
-forward_strats=("average" "max" "cat")
+# Array of forward strategies (only average and max, not cls)
+forward_strats=("average" "max")
 
 # Array of number of frames
 num_frames=(5 10)
@@ -23,43 +23,9 @@ generate_name() {
     local frames=$3
     local dataset=$4
     local mask_option=$5
-    
-    # Extract model size from DINO model name and shorten it
-    local model_short=""
-    case "${model##*/}" in
-        "dinov2-small") model_short="dino_s" ;;
-        "dinov2-base") model_short="dino_b" ;;
-        "dinov2-large") model_short="dino_l" ;;
-        "dinov2-giant") model_short="dino_g" ;;
-        *) model_short="${model##*/}" ;;
-    esac
-    
-    # Shorten strategy names
-    local strat_short=""
-    case "$strat" in
-        "average") strat_short="avg" ;;
-        "maximum"|"max") strat_short="max" ;;
-        "cat") strat_short="cat" ;;
-        *) strat_short="$strat" ;;
-    esac
-    
-    # Shorten dataset names
-    local dataset_short=""
-    case "$dataset" in
-        "meerkat") dataset_short="mk" ;;
-        "polarbears") dataset_short="pb" ;;
-        *) dataset_short="$dataset" ;;
-    esac
-    
-    # Shorten mask option
-    local mask_short=""
-    case "$mask_option" in
-        "with_mask") mask_short="wm" ;;
-        "without_mask") mask_short="nm" ;;
-        *) mask_short="$mask_option" ;;
-    esac
-    
-    echo "${model_short}_${strat_short}_${frames}f_${dataset_short}_${mask_short}"
+    # Extract model size from the model name (L, B, S, or T)
+    local model_size=$(echo "$model" | sed 's/.*MegaDescriptor-\([LBST]\)-.*/\1/')
+    echo "megadescriptor_${model_size}_${strat}_${frames}frames_${dataset}_${mask_option}"
 }
 
 # Function to run the embedding generation
@@ -74,7 +40,7 @@ run_embedding() {
     local clips_dir=$8
 
     local name=$(generate_name "$model" "$strat" "$frames" "$dataset" "$mask_option")
-    local output_dir="${BASE_DIR}/results/pre_trained_model/${model##*/}"
+    local output_dir="${BASE_DIR}/results/pre_trained_model/megadescriptor"
     
     # Create output directory if it doesn't exist
     mkdir -p "$output_dir"
@@ -92,13 +58,15 @@ run_embedding() {
         --clips_directory "$clips_dir" \
         --num_frames "$frames" \
         --mode "Test" \
-        --dino_model_name "$model" \
+        --model_type "megadescriptor" \
+        --pre_trained_model "$model" \
+        --model_num_frames "$frames" \
         --forward_strat "$strat" \
         --output_file "${output_dir}/${name}.pkl"
 }
 
 # Generate embeddings for Meerkat dataset
-for model in "${dino_models[@]}"; do
+for model in "${megadescriptor_models[@]}"; do
     for strat in "${forward_strats[@]}"; do
         for frames in "${num_frames[@]}"; do
             for mask_option in "${mask_options[@]}"; do
@@ -114,7 +82,7 @@ for model in "${dino_models[@]}"; do
 done
 
 # Generate embeddings for Polar Bears dataset
-for model in "${dino_models[@]}"; do
+for model in "${megadescriptor_models[@]}"; do
     for strat in "${forward_strats[@]}"; do
         for frames in "${num_frames[@]}"; do
             for mask_option in "${mask_options[@]}"; do
@@ -129,4 +97,4 @@ for model in "${dino_models[@]}"; do
     done
 done
 
-echo "Embedding generation complete!"
+echo "MegaDescriptor embedding generation complete!"

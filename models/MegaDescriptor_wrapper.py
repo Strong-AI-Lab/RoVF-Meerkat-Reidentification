@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import timm
 import os
+import math
 
 class MegaDescriptorVideoWrapper(nn.Module):
     def __init__(
@@ -89,6 +90,88 @@ class MegaDescriptorVideoWrapper(nn.Module):
             linear_output = output_tensor
 
         return linear_output
+
+    # --- New utility: extract features before global pooling ---
+    #@torch.no_grad()
+    def extract_prepool_features(self, video, return_grid: bool=True):
+        """Return features before global pooling for each frame.
+        Args:
+            video: (B,T,C,H,W) or (B,C,H,W)
+            return_grid: if True, and features are spatial (B,C,H,W), returns (B,T,C,H,W). Otherwise returns (B,T,L,C).
+        Returns:
+            FloatTensor of shape (B,T,...) where ... is either (C,H,W) or (L,C) depending on model.
+        """
+        was_4d = False
+        if video.dim() == 4:
+            video = video.unsqueeze(1)
+            was_4d = True
+        assert video.dim() == 5, f"Expected video of shape (B,T,C,H,W) or (B,C,H,W), got {tuple(video.size())}"
+        B, T, C, H, W = video.size()
+
+        feats_per_frame = []
+
+        def _cap_global_pool_inp(module, inp, out):
+            # Save the tensor right before pooling
+            self._prepool_tmp = inp[0]
+
+        handle = None
+        self._prepool_tmp = None
+        try:
+            global_pool_module = getattr(self.model, 'global_pool', None)
+            if isinstance(global_pool_module, nn.Module):
+                handle = global_pool_module.register_forward_hook(_cap_global_pool_inp)
+            else:
+                # fallback to forward_features if available
+                global_pool_module = None
+
+            for i in range(T):
+                if handle is not None:
+                    _ = self.model(video[:, i])  # triggers hook; _ is pooled output
+                    x = self._prepool_tmp
+                    if x is None:
+                        raise RuntimeError("Failed to capture pre-pooling features from MegaDescriptor.")
+                else:
+                    if hasattr(self.model, 'forward_features'):
+                        x = self.model.forward_features(video[:, i])
+                    else:
+                        raise RuntimeError("Model has no global_pool to hook and no forward_features method.")
+
+                # Normalize shapes: accept (B,C,H,W) or (B,L,C)
+                if x.dim() == 4:
+                    # (B, C, H, W)
+                    if return_grid:
+                        feats_per_frame.append(x)
+                    else:
+                        # flatten spatial to tokens (B, HW, C)
+                        b, c, h, w = x.size()
+                        feats_per_frame.append(x.view(b, c, h*w).permute(0, 2, 1).contiguous())
+                elif x.dim() == 3:
+                    # (B, L, C)
+                    if return_grid:
+                        # try reshape to square grid if possible
+                        b, l, c = x.size()
+                        gh = int(math.sqrt(l))
+                        if gh * gh == l:
+                            feats_per_frame.append(x.transpose(1, 2).contiguous().view(b, c, gh, gh))
+                        else:
+                            return_grid = False
+                            feats_per_frame.append(x)
+                    else:
+                        feats_per_frame.append(x)
+                else:
+                    raise RuntimeError(f"Unexpected pre-pool feature shape: {tuple(x.size())}")
+        finally:
+            if handle is not None:
+                handle.remove()
+            self._prepool_tmp = None
+
+        if return_grid:
+            # stack (B,C,H,W) across time -> (B,T,C,H,W)
+            feats = torch.stack(feats_per_frame, dim=1)
+        else:
+            # stack (B,L,C) across time -> (B,T,L,C)
+            feats = torch.stack(feats_per_frame, dim=1)
+        return feats
 
 def forward_cat_test(output_dim):
 
@@ -266,6 +349,25 @@ def test_cls(output_dim):
         else:
             print(f"No gradient computed for {name}")
 
+# --- New: test pre-pooling features ---
+def test_prepool_features():
+    print("Testing MegaDescriptor pre-pooling feature extraction...")
+    model_name = 'hf-hub:BVRA/MegaDescriptor-T-224'
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    B, T = 2, 2
+    video = torch.randn(B, T, 3, 224, 224).to(device)
+
+    model = MegaDescriptorVideoWrapper(model_name, output_dim=None, num_frames=T).to(device)
+
+    # 1) As grid if possible
+    feats_grid = model.extract_prepool_features(video, return_grid=True)
+    print(f"prepool grid or tokens (B,T,....): {tuple(feats_grid.size())}")
+
+    # 2) As tokens if requested
+    feats_tokens = model.extract_prepool_features(video, return_grid=False)
+    print(f"prepool tokens (B,T,L,C) or grid flattened (B,T,L,C): {tuple(feats_tokens.size())}")
+
 def print_model_architecture():
     model_name = 'hf-hub:BVRA/MegaDescriptor-T-224'
     model = MegaDescriptorVideoWrapper(
@@ -300,6 +402,8 @@ if __name__ == "__main__":
     #forward_max_test(output_dim=50)
 
     #test_cls(1000)
-    test_cls(None)
+    #test_cls(None)
+
+    test_prepool_features()
 
     #print_model_architecture()

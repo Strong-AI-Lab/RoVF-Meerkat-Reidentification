@@ -48,6 +48,28 @@ def majority_vote(ranks_list):
     majority_rank = vote_counts.most_common(1)[0][0]
     return majority_rank
 
+def compute_aggregated_top3_accuracy(ranks_per_frame, ground_truth):
+    """
+    Aggregate voting approach:
+    1. Collect all top-3 votes from all frames
+    2. Count votes for each candidate
+    3. Take the 3 most-voted candidates as final top-3
+    4. Check if ground truth is in that final top-3
+    """
+    # Collect all top-3 candidates from all frames
+    all_votes = []
+    for ranks in ranks_per_frame:
+        if ranks and len(ranks) >= 3:
+            all_votes.extend(ranks[:3])  # Add each frame's top-3 candidates
+    assert all_votes, "No votes collected for top-3 aggregation"
+    # Count votes for each candidate
+    from collections import Counter
+    vote_counts = Counter(all_votes)
+    # Get the 3 most voted candidates (our final top-3)
+    final_top3_candidates = [candidate for candidate, count in vote_counts.most_common(3)]
+    # Check if ground truth is in our final top-3
+    return 1 if ground_truth in final_top3_candidates else 0
+
 def get_metrics(models, df, img_maj_vote=False):
     """
     Compute top-1, top-3 accuracy and the number of unique elements for each model.
@@ -83,7 +105,6 @@ def get_metrics(models, df, img_maj_vote=False):
     # Loop through each row in the dataframe
     for index, row in df.iterrows():
         for k, m in enumerate(data):
-            
             
             if img_maj_vote:
                 row_embeddings = []
@@ -133,11 +154,9 @@ def get_metrics(models, df, img_maj_vote=False):
                         majority_top1 = majority_vote(valid_votes)
                         results[k, idx + img_idx, 0] = 1 if majority_top1 in [0, 1] else 0
                         
-                        # Check if majority_top1 is in the top-3 for most frames
-                        top3_votes = []
-                        for ranks in ranks_per_frame:
-                            top3_votes.append(1 if (ranks and majority_top1 in ranks[:3]) else 0)
-                        results[k, idx + img_idx, 1] = 1 if sum(top3_votes) > len(top3_votes) / 2 else 0
+                        # Use aggregated voting for top-3 accuracy
+                        ground_truth = 1 if img_idx == 0 else 0  # Ground truth is the other image
+                        results[k, idx + img_idx, 1] = compute_aggregated_top3_accuracy(ranks_per_frame, ground_truth)
                     else:
                         results[k, idx + img_idx, 0] = 0
                         results[k, idx + img_idx, 1] = 0
@@ -182,41 +201,41 @@ def get_metrics(models, df, img_maj_vote=False):
 
 def get_dino_pretrained_results_meerkat():
     models = [
-        "../results/pre_trained_model/dinov2-base/dinov2-base_average_5frames_meerkat_with_mask.pkl",
-        "../results/pre_trained_model/dinov2-base/dinov2-base_average_5frames_meerkat_without_mask.pkl",
-        "../results/pre_trained_model/dinov2-base/dinov2-base_average_10frames_meerkat_with_mask.pkl",
-        "../results/pre_trained_model/dinov2-base/dinov2-base_average_10frames_meerkat_without_mask.pkl",
-        "../results/pre_trained_model/dinov2-base/dinov2-base_max_5frames_meerkat_with_mask.pkl",
-        "../results/pre_trained_model/dinov2-base/dinov2-base_max_5frames_meerkat_without_mask.pkl",
-        "../results/pre_trained_model/dinov2-base/dinov2-base_max_10frames_meerkat_with_mask.pkl",
-        "../results/pre_trained_model/dinov2-base/dinov2-base_max_10frames_meerkat_without_mask.pkl",
+        "../results/pre_trained_model/dinov2-base/dino_b_avg_5f_mk_wm.pkl",
+        "../results/pre_trained_model/dinov2-base/dino_b_avg_5f_mk_nm.pkl",
+        "../results/pre_trained_model/dinov2-base/dino_b_avg_10f_mk_wm.pkl",
+        "../results/pre_trained_model/dinov2-base/dino_b_avg_10f_mk_nm.pkl",
+        "../results/pre_trained_model/dinov2-base/dino_b_max_5f_mk_wm.pkl",
+        "../results/pre_trained_model/dinov2-base/dino_b_max_5f_mk_nm.pkl",
+        "../results/pre_trained_model/dinov2-base/dino_b_max_10f_mk_wm.pkl",
+        "../results/pre_trained_model/dinov2-base/dino_b_max_10f_mk_nm.pkl",
         
-        "../results/pre_trained_model/dinov2-small/dinov2-small_average_5frames_meerkat_with_mask.pkl",
-        "../results/pre_trained_model/dinov2-small/dinov2-small_average_5frames_meerkat_without_mask.pkl",
-        "../results/pre_trained_model/dinov2-small/dinov2-small_average_10frames_meerkat_with_mask.pkl",
-        "../results/pre_trained_model/dinov2-small/dinov2-small_average_10frames_meerkat_without_mask.pkl",
-        "../results/pre_trained_model/dinov2-small/dinov2-small_max_5frames_meerkat_with_mask.pkl",
-        "../results/pre_trained_model/dinov2-small/dinov2-small_max_5frames_meerkat_without_mask.pkl",
-        "../results/pre_trained_model/dinov2-small/dinov2-small_max_10frames_meerkat_with_mask.pkl",
-        "../results/pre_trained_model/dinov2-small/dinov2-small_max_10frames_meerkat_without_mask.pkl",
+        "../results/pre_trained_model/dinov2-small/dino_s_avg_5f_mk_wm.pkl",
+        "../results/pre_trained_model/dinov2-small/dino_s_avg_5f_mk_nm.pkl",
+        "../results/pre_trained_model/dinov2-small/dino_s_avg_10f_mk_wm.pkl",
+        "../results/pre_trained_model/dinov2-small/dino_s_avg_10f_mk_nm.pkl",
+        "../results/pre_trained_model/dinov2-small/dino_s_max_5f_mk_wm.pkl",
+        "../results/pre_trained_model/dinov2-small/dino_s_max_5f_mk_nm.pkl",
+        "../results/pre_trained_model/dinov2-small/dino_s_max_10f_mk_wm.pkl",
+        "../results/pre_trained_model/dinov2-small/dino_s_max_10f_mk_nm.pkl",
         
-        "../results/pre_trained_model/dinov2-large/dinov2-large_average_5frames_meerkat_with_mask.pkl",
-        "../results/pre_trained_model/dinov2-large/dinov2-large_average_5frames_meerkat_without_mask.pkl",
-        "../results/pre_trained_model/dinov2-large/dinov2-large_average_10frames_meerkat_with_mask.pkl",
-        "../results/pre_trained_model/dinov2-large/dinov2-large_average_10frames_meerkat_without_mask.pkl",
-        "../results/pre_trained_model/dinov2-large/dinov2-large_max_5frames_meerkat_with_mask.pkl",
-        "../results/pre_trained_model/dinov2-large/dinov2-large_max_5frames_meerkat_without_mask.pkl",
-        "../results/pre_trained_model/dinov2-large/dinov2-large_max_10frames_meerkat_with_mask.pkl",
-        "../results/pre_trained_model/dinov2-large/dinov2-large_max_10frames_meerkat_without_mask.pkl",
+        "../results/pre_trained_model/dinov2-large/dino_l_avg_5f_mk_wm.pkl",
+        "../results/pre_trained_model/dinov2-large/dino_l_avg_5f_mk_nm.pkl",
+        "../results/pre_trained_model/dinov2-large/dino_l_avg_10f_mk_wm.pkl",
+        "../results/pre_trained_model/dinov2-large/dino_l_avg_10f_mk_nm.pkl",
+        "../results/pre_trained_model/dinov2-large/dino_l_max_5f_mk_wm.pkl",
+        "../results/pre_trained_model/dinov2-large/dino_l_max_5f_mk_nm.pkl",
+        "../results/pre_trained_model/dinov2-large/dino_l_max_10f_mk_wm.pkl",
+        "../results/pre_trained_model/dinov2-large/dino_l_max_10f_mk_nm.pkl",
         
-        "../results/pre_trained_model/dinov2-giant/dinov2-giant_average_5frames_meerkat_with_mask.pkl",
-        "../results/pre_trained_model/dinov2-giant/dinov2-giant_average_5frames_meerkat_without_mask.pkl",
-        "../results/pre_trained_model/dinov2-giant/dinov2-giant_average_10frames_meerkat_with_mask.pkl",
-        "../results/pre_trained_model/dinov2-giant/dinov2-giant_average_10frames_meerkat_without_mask.pkl",
-        "../results/pre_trained_model/dinov2-giant/dinov2-giant_max_5frames_meerkat_with_mask.pkl",
-        "../results/pre_trained_model/dinov2-giant/dinov2-giant_max_5frames_meerkat_without_mask.pkl",
-        "../results/pre_trained_model/dinov2-giant/dinov2-giant_max_10frames_meerkat_with_mask.pkl",
-        "../results/pre_trained_model/dinov2-giant/dinov2-giant_max_10frames_meerkat_without_mask.pkl"
+        "../results/pre_trained_model/dinov2-giant/dino_g_avg_5f_mk_wm.pkl",
+        "../results/pre_trained_model/dinov2-giant/dino_g_avg_5f_mk_nm.pkl",
+        "../results/pre_trained_model/dinov2-giant/dino_g_avg_10f_mk_wm.pkl",
+        "../results/pre_trained_model/dinov2-giant/dino_g_avg_10f_mk_nm.pkl",
+        "../results/pre_trained_model/dinov2-giant/dino_g_max_5f_mk_wm.pkl",
+        "../results/pre_trained_model/dinov2-giant/dino_g_max_5f_mk_nm.pkl",
+        "../results/pre_trained_model/dinov2-giant/dino_g_max_10f_mk_wm.pkl",
+        "../results/pre_trained_model/dinov2-giant/dino_g_max_10f_mk_nm.pkl"
     ]
 
     # Load dataframe of test examples
@@ -233,41 +252,41 @@ def get_dino_pretrained_results_meerkat():
 
 def get_dino_pretrained_results_polarbears():
     models = [
-        "../results/pre_trained_model/dinov2-base/dinov2-base_average_5frames_polarbears_with_mask.pkl",
-        "../results/pre_trained_model/dinov2-base/dinov2-base_average_5frames_polarbears_without_mask.pkl",
-        "../results/pre_trained_model/dinov2-base/dinov2-base_average_10frames_polarbears_with_mask.pkl",
-        "../results/pre_trained_model/dinov2-base/dinov2-base_average_10frames_polarbears_without_mask.pkl",
-        "../results/pre_trained_model/dinov2-base/dinov2-base_max_5frames_polarbears_with_mask.pkl",
-        "../results/pre_trained_model/dinov2-base/dinov2-base_max_5frames_polarbears_without_mask.pkl",
-        "../results/pre_trained_model/dinov2-base/dinov2-base_max_10frames_polarbears_with_mask.pkl",
-        "../results/pre_trained_model/dinov2-base/dinov2-base_max_10frames_polarbears_without_mask.pkl",
+        "../results/pre_trained_model/dinov2-base/dino_b_avg_5f_pb_wm.pkl",
+        "../results/pre_trained_model/dinov2-base/dino_b_avg_5f_pb_nm.pkl",
+        "../results/pre_trained_model/dinov2-base/dino_b_avg_10f_pb_wm.pkl",
+        "../results/pre_trained_model/dinov2-base/dino_b_avg_10f_pb_nm.pkl",
+        "../results/pre_trained_model/dinov2-base/dino_b_max_5f_pb_wm.pkl",
+        "../results/pre_trained_model/dinov2-base/dino_b_max_5f_pb_nm.pkl",
+        "../results/pre_trained_model/dinov2-base/dino_b_max_10f_pb_wm.pkl",
+        "../results/pre_trained_model/dinov2-base/dino_b_max_10f_pb_nm.pkl",
         
-        "../results/pre_trained_model/dinov2-small/dinov2-small_average_5frames_polarbears_with_mask.pkl",
-        "../results/pre_trained_model/dinov2-small/dinov2-small_average_5frames_polarbears_without_mask.pkl",
-        "../results/pre_trained_model/dinov2-small/dinov2-small_average_10frames_polarbears_with_mask.pkl",
-        "../results/pre_trained_model/dinov2-small/dinov2-small_average_10frames_polarbears_without_mask.pkl",
-        "../results/pre_trained_model/dinov2-small/dinov2-small_max_5frames_polarbears_with_mask.pkl",
-        "../results/pre_trained_model/dinov2-small/dinov2-small_max_5frames_polarbears_without_mask.pkl",
-        "../results/pre_trained_model/dinov2-small/dinov2-small_max_10frames_polarbears_with_mask.pkl",
-        "../results/pre_trained_model/dinov2-small/dinov2-small_max_10frames_polarbears_without_mask.pkl",
+        "../results/pre_trained_model/dinov2-small/dino_s_avg_5f_pb_wm.pkl",
+        "../results/pre_trained_model/dinov2-small/dino_s_avg_5f_pb_nm.pkl",
+        "../results/pre_trained_model/dinov2-small/dino_s_avg_10f_pb_wm.pkl",
+        "../results/pre_trained_model/dinov2-small/dino_s_avg_10f_pb_nm.pkl",
+        "../results/pre_trained_model/dinov2-small/dino_s_max_5f_pb_wm.pkl",
+        "../results/pre_trained_model/dinov2-small/dino_s_max_5f_pb_nm.pkl",
+        "../results/pre_trained_model/dinov2-small/dino_s_max_10f_pb_wm.pkl",
+        "../results/pre_trained_model/dinov2-small/dino_s_max_10f_pb_nm.pkl",
         
-        "../results/pre_trained_model/dinov2-large/dinov2-large_average_5frames_polarbears_with_mask.pkl",
-        "../results/pre_trained_model/dinov2-large/dinov2-large_average_5frames_polarbears_without_mask.pkl",
-        "../results/pre_trained_model/dinov2-large/dinov2-large_average_10frames_polarbears_with_mask.pkl",
-        "../results/pre_trained_model/dinov2-large/dinov2-large_average_10frames_polarbears_without_mask.pkl",
-        "../results/pre_trained_model/dinov2-large/dinov2-large_max_5frames_polarbears_with_mask.pkl",
-        "../results/pre_trained_model/dinov2-large/dinov2-large_max_5frames_polarbears_without_mask.pkl",
-        "../results/pre_trained_model/dinov2-large/dinov2-large_max_10frames_polarbears_with_mask.pkl",
-        "../results/pre_trained_model/dinov2-large/dinov2-large_max_10frames_polarbears_without_mask.pkl",
+        "../results/pre_trained_model/dinov2-large/dino_l_avg_5f_pb_wm.pkl",
+        "../results/pre_trained_model/dinov2-large/dino_l_avg_5f_pb_nm.pkl",
+        "../results/pre_trained_model/dinov2-large/dino_l_avg_10f_pb_wm.pkl",
+        "../results/pre_trained_model/dinov2-large/dino_l_avg_10f_pb_nm.pkl",
+        "../results/pre_trained_model/dinov2-large/dino_l_max_5f_pb_wm.pkl",
+        "../results/pre_trained_model/dinov2-large/dino_l_max_5f_pb_nm.pkl",
+        "../results/pre_trained_model/dinov2-large/dino_l_max_10f_pb_wm.pkl",
+        "../results/pre_trained_model/dinov2-large/dino_l_max_10f_pb_nm.pkl",
         
-        "../results/pre_trained_model/dinov2-giant/dinov2-giant_average_5frames_polarbears_with_mask.pkl",
-        "../results/pre_trained_model/dinov2-giant/dinov2-giant_average_5frames_polarbears_without_mask.pkl",
-        "../results/pre_trained_model/dinov2-giant/dinov2-giant_average_10frames_polarbears_with_mask.pkl",
-        "../results/pre_trained_model/dinov2-giant/dinov2-giant_average_10frames_polarbears_without_mask.pkl",
-        "../results/pre_trained_model/dinov2-giant/dinov2-giant_max_5frames_polarbears_with_mask.pkl",
-        "../results/pre_trained_model/dinov2-giant/dinov2-giant_max_5frames_polarbears_without_mask.pkl",
-        "../results/pre_trained_model/dinov2-giant/dinov2-giant_max_10frames_polarbears_with_mask.pkl",
-        "../results/pre_trained_model/dinov2-giant/dinov2-giant_max_10frames_polarbears_without_mask.pkl"
+        "../results/pre_trained_model/dinov2-giant/dino_g_avg_5f_pb_wm.pkl",
+        "../results/pre_trained_model/dinov2-giant/dino_g_avg_5f_pb_nm.pkl",
+        "../results/pre_trained_model/dinov2-giant/dino_g_avg_10f_pb_wm.pkl",
+        "../results/pre_trained_model/dinov2-giant/dino_g_avg_10f_pb_nm.pkl",
+        "../results/pre_trained_model/dinov2-giant/dino_g_max_5f_pb_wm.pkl",
+        "../results/pre_trained_model/dinov2-giant/dino_g_max_5f_pb_nm.pkl",
+        "../results/pre_trained_model/dinov2-giant/dino_g_max_10f_pb_wm.pkl",
+        "../results/pre_trained_model/dinov2-giant/dino_g_max_10f_pb_nm.pkl"
     ]
 
     # Load dataframe of test examples
@@ -282,17 +301,189 @@ def get_dino_pretrained_results_polarbears():
         for i, (top1, top3, unique_top3) in enumerate(metrics):
             file.write(f"Model {i}: Top-1 Accuracy: {top1}, Top-3 Accuracy: {top3}, Unique in Top-3: {unique_top3} - {models[i]}\n")
 
+def get_bioclip_video_results_meerkat():
+    models = [
+        "../results/pre_trained_model/bioclip/bioclip_average_5frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/bioclip/bioclip_average_5frames_meerkat_without_mask.pkl",
+        "../results/pre_trained_model/bioclip/bioclip_average_10frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/bioclip/bioclip_average_10frames_meerkat_without_mask.pkl",
+        "../results/pre_trained_model/bioclip/bioclip_max_5frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/bioclip/bioclip_max_5frames_meerkat_without_mask.pkl",
+        "../results/pre_trained_model/bioclip/bioclip_max_10frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/bioclip/bioclip_max_10frames_meerkat_without_mask.pkl"
+    ]
+
+    # Load dataframe of test examples
+    df = pd.read_csv("../Dataset/meerkat_h5files/Precomputed_test_examples_meerkat.csv")
+    
+    # Get metrics for all models
+    metrics = get_metrics(models, df)
+    
+    # Save the results to a text file
+    with open("../results/pre_trained_model/bioclip_meerkat_results.txt", "w") as file:
+        # Write the results for each model
+        for i, (top1, top3, unique_top3) in enumerate(metrics):
+            file.write(f"Model {i}: Top-1 Accuracy: {top1}, Top-3 Accuracy: {top3}, Unique in Top-3: {unique_top3} - {models[i]}\n")
+
+def get_bioclip_video_results_polarbears():
+    models = [
+        "../results/pre_trained_model/bioclip/bioclip_average_5frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/bioclip/bioclip_average_5frames_polarbears_without_mask.pkl",
+        "../results/pre_trained_model/bioclip/bioclip_average_10frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/bioclip/bioclip_average_10frames_polarbears_without_mask.pkl",
+        "../results/pre_trained_model/bioclip/bioclip_max_5frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/bioclip/bioclip_max_5frames_polarbears_without_mask.pkl",
+        "../results/pre_trained_model/bioclip/bioclip_max_10frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/bioclip/bioclip_max_10frames_polarbears_without_mask.pkl"
+    ]
+
+    # Load dataframe of test examples
+    df = pd.read_csv("../Dataset/polarbears_h5files/Precomputed_test_examples_polarbear.csv")
+    
+    # Get metrics for all models
+    metrics = get_metrics(models, df)
+    
+    # Save the results to a text file
+    with open("../results/pre_trained_model/bioclip_polarbears_results.txt", "w") as file:
+        # Write the results for each model
+        for i, (top1, top3, unique_top3) in enumerate(metrics):
+            file.write(f"Model {i}: Top-1 Accuracy: {top1}, Top-3 Accuracy: {top3}, Unique in Top-3: {unique_top3} - {models[i]}\n")
+
+def get_megadescriptor_results_meerkat():
+    models = [
+        # MegaDescriptor-L (Large)
+        "../results/pre_trained_model/megadescriptor/megadescriptor_L_average_5frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_L_average_5frames_meerkat_without_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_L_average_10frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_L_average_10frames_meerkat_without_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_L_max_5frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_L_max_5frames_meerkat_without_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_L_max_10frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_L_max_10frames_meerkat_without_mask.pkl",
+        
+        # MegaDescriptor-B (Base)
+        "../results/pre_trained_model/megadescriptor/megadescriptor_B_average_5frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_B_average_5frames_meerkat_without_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_B_average_10frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_B_average_10frames_meerkat_without_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_B_max_5frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_B_max_5frames_meerkat_without_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_B_max_10frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_B_max_10frames_meerkat_without_mask.pkl",
+        
+        # MegaDescriptor-S (Small)
+        "../results/pre_trained_model/megadescriptor/megadescriptor_S_average_5frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_S_average_5frames_meerkat_without_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_S_average_10frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_S_average_10frames_meerkat_without_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_S_max_5frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_S_max_5frames_meerkat_without_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_S_max_10frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_S_max_10frames_meerkat_without_mask.pkl",
+        
+        # MegaDescriptor-T (Tiny)
+        "../results/pre_trained_model/megadescriptor/megadescriptor_T_average_5frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_T_average_5frames_meerkat_without_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_T_average_10frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_T_average_10frames_meerkat_without_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_T_max_5frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_T_max_5frames_meerkat_without_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_T_max_10frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_T_max_10frames_meerkat_without_mask.pkl"
+    ]
+
+    # Load dataframe of test examples
+    df = pd.read_csv("../Dataset/meerkat_h5files/Precomputed_test_examples_meerkat.csv")
+    
+    # Get metrics for all models
+    metrics = get_metrics(models, df)
+    
+    # Save the results to a text file
+    with open("../results/pre_trained_model/megadescriptor_meerkat_results.txt", "w") as file:
+        # Write the results for each model
+        for i, (top1, top3, unique_top3) in enumerate(metrics):
+            file.write(f"Model {i}: Top-1 Accuracy: {top1}, Top-3 Accuracy: {top3}, Unique in Top-3: {unique_top3} - {models[i]}\n")
+
+def get_megadescriptor_results_polarbears():
+    models = [
+        # MegaDescriptor-L (Large)
+        "../results/pre_trained_model/megadescriptor/megadescriptor_L_average_5frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_L_average_5frames_polarbears_without_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_L_average_10frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_L_average_10frames_polarbears_without_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_L_max_5frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_L_max_5frames_polarbears_without_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_L_max_10frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_L_max_10frames_polarbears_without_mask.pkl",
+        
+        # MegaDescriptor-B (Base)
+        "../results/pre_trained_model/megadescriptor/megadescriptor_B_average_5frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_B_average_5frames_polarbears_without_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_B_average_10frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_B_average_10frames_polarbears_without_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_B_max_5frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_B_max_5frames_polarbears_without_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_B_max_10frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_B_max_10frames_polarbears_without_mask.pkl",
+        
+        # MegaDescriptor-S (Small)
+        "../results/pre_trained_model/megadescriptor/megadescriptor_S_average_5frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_S_average_5frames_polarbears_without_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_S_average_10frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_S_average_10frames_polarbears_without_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_S_max_5frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_S_max_5frames_polarbears_without_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_S_max_10frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_S_max_10frames_polarbears_without_mask.pkl",
+        
+        # MegaDescriptor-T (Tiny)
+        "../results/pre_trained_model/megadescriptor/megadescriptor_T_average_5frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_T_average_5frames_polarbears_without_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_T_average_10frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_T_average_10frames_polarbears_without_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_T_max_5frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_T_max_5frames_polarbears_without_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_T_max_10frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor/megadescriptor_T_max_10frames_polarbears_without_mask.pkl"
+    ]
+
+    # Load dataframe of test examples
+    df = pd.read_csv("../Dataset/polarbears_h5files/Precomputed_test_examples_polarbear.csv")
+    
+    # Get metrics for all models
+    metrics = get_metrics(models, df)
+    
+    # Save the results to a text file
+    with open("../results/pre_trained_model/megadescriptor_polarbears_results.txt", "w") as file:
+        # Write the results for each model
+        for i, (top1, top3, unique_top3) in enumerate(metrics):
+            file.write(f"Model {i}: Top-1 Accuracy: {top1}, Top-3 Accuracy: {top3}, Unique in Top-3: {unique_top3} - {models[i]}\n")
+
 def get_image_model_results_meerkat():
     models = [
-        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/bioclip_hf_hub_imageomics_bioclip_/bioclip_cls_10frames_meerkat_with_mask.pkl",
-        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/dino_facebook_dinov2_base_/dinov2-base_cls_10frames_meerkat_with_mask.pkl",
-        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/dino_facebook_dinov2_giant_/dinov2-giant_cls_10frames_meerkat_with_mask.pkl",
-        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/dino_facebook_dinov2_large_/dinov2-large_cls_10frames_meerkat_with_mask.pkl",
-        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/dino_facebook_dinov2_small_/dinov2-small_cls_10frames_meerkat_with_mask.pkl",
-        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/megadescriptor_hf_hub_BVRA_MegaDescriptor_B_224_/MegaDescriptor-B-224_cls_10frames_meerkat_with_mask.pkl",
-        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/megadescriptor_hf_hub_BVRA_MegaDescriptor_L_224_/MegaDescriptor-L-224_cls_10frames_meerkat_with_mask.pkl",
-        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/megadescriptor_hf_hub_BVRA_MegaDescriptor_S_224_/MegaDescriptor-S-224_cls_10frames_meerkat_with_mask.pkl",
-        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/megadescriptor_hf_hub_BVRA_MegaDescriptor_T_224_/MegaDescriptor-T-224_cls_10frames_meerkat_with_mask.pkl"
+        "../results/pre_trained_model/bioclip_hf_hub_imageomics_bioclip_/bioclip_cls_10frames_meerkat_with_mask.pkl", #0
+        "../results/pre_trained_model/dino_facebook_dinov2_base_/dinov2-base_cls_10frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/dino_facebook_dinov2_giant_/dinov2-giant_cls_10frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/dino_facebook_dinov2_large_/dinov2-large_cls_10frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/dino_facebook_dinov2_small_/dinov2-small_cls_10frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor_hf_hub_BVRA_MegaDescriptor_B_224_/MegaDescriptor-B-224_cls_10frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor_hf_hub_BVRA_MegaDescriptor_L_224_/MegaDescriptor-L-224_cls_10frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor_hf_hub_BVRA_MegaDescriptor_S_224_/MegaDescriptor-S-224_cls_10frames_meerkat_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor_hf_hub_BVRA_MegaDescriptor_T_224_/MegaDescriptor-T-224_cls_10frames_meerkat_with_mask.pkl",
+        # Full model training results
+        "../results/full_model_training/bioclip_meerkat/checkpoint_epoch_5_embeddings_mask.pkl", #9
+        "../results/full_model_training/imagedino_b_meerkat/checkpoint_epoch_7_embeddings_mask.pkl",
+        "../results/full_model_training/imagedino_s_meerkat/checkpoint_epoch_2_embeddings_mask.pkl",
+        "../results/full_model_training/megadescriptor_b_meerkat/checkpoint_epoch_19_embeddings_mask.pkl", #12
+        "../results/full_model_training/megadescriptor_l_meerkat/checkpoint_epoch_20_embeddings_mask.pkl",
+        "../results/full_model_training/megadescriptor_s_meerkat/checkpoint_epoch_1_embeddings_mask.pkl",
+        "../results/full_model_training/megadescriptor_t_meerkat/checkpoint_epoch_3_embeddings_mask.pkl",
+        "../results/full_model_training/resnet18_meerkat/checkpoint_epoch_2_embeddings_mask.pkl",
+        #"../results/full_model_training/resnet18_meerkat/checkpoint_epoch_43_embeddings_mask.pkl",
+        "../results/full_model_training/resnet50_meerkat/checkpoint_epoch_2_embeddings_mask.pkl",
+        "../results/full_model_training/resnet152_meerkat/checkpoint_epoch_19_embeddings_mask.pkl",
+        #"../results/full_model_training/resnet152_meerkat/checkpoint_epoch_50_embeddings_mask.pkl",
+        "../results/full_model_training/vgg-16_meerkat/checkpoint_epoch_11_embeddings_mask.pkl"
     ]
 
     # Load dataframe of test examples
@@ -309,15 +500,29 @@ def get_image_model_results_meerkat():
 
 def get_image_model_results_polarbears():
     models = [
-        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/bioclip_hf_hub_imageomics_bioclip_/bioclip_cls_10frames_polarbears_with_mask.pkl",
-        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/dino_facebook_dinov2_base_/dinov2-base_cls_10frames_polarbears_with_mask.pkl",
-        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/dino_facebook_dinov2_giant_/dinov2-giant_cls_10frames_polarbears_with_mask.pkl",
-        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/dino_facebook_dinov2_large_/dinov2-large_cls_10frames_polarbears_with_mask.pkl",
-        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/dino_facebook_dinov2_small_/dinov2-small_cls_10frames_polarbears_with_mask.pkl",
-        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/megadescriptor_hf_hub_BVRA_MegaDescriptor_B_224_/MegaDescriptor-B-224_cls_10frames_polarbears_with_mask.pkl",
-        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/megadescriptor_hf_hub_BVRA_MegaDescriptor_L_224_/MegaDescriptor-L-224_cls_10frames_polarbears_with_mask.pkl",
-        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/megadescriptor_hf_hub_BVRA_MegaDescriptor_S_224_/MegaDescriptor-S-224_cls_10frames_polarbears_with_mask.pkl",
-        "/data/kkno604/github/RoVF-meerkat-reidentification/results/pre_trained_model/megadescriptor_hf_hub_BVRA_MegaDescriptor_T_224_/MegaDescriptor-T-224_cls_10frames_polarbears_with_mask.pkl"
+        "../results/pre_trained_model/bioclip_hf_hub_imageomics_bioclip_/bioclip_cls_10frames_polarbears_with_mask.pkl", #0
+        "../results/pre_trained_model/dino_facebook_dinov2_base_/dinov2-base_cls_10frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/dino_facebook_dinov2_giant_/dinov2-giant_cls_10frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/dino_facebook_dinov2_large_/dinov2-large_cls_10frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/dino_facebook_dinov2_small_/dinov2-small_cls_10frames_polarbears_with_mask.pkl", #4
+        "../results/pre_trained_model/megadescriptor_hf_hub_BVRA_MegaDescriptor_B_224_/MegaDescriptor-B-224_cls_10frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor_hf_hub_BVRA_MegaDescriptor_L_224_/MegaDescriptor-L-224_cls_10frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor_hf_hub_BVRA_MegaDescriptor_S_224_/MegaDescriptor-S-224_cls_10frames_polarbears_with_mask.pkl",
+        "../results/pre_trained_model/megadescriptor_hf_hub_BVRA_MegaDescriptor_T_224_/MegaDescriptor-T-224_cls_10frames_polarbears_with_mask.pkl",
+        # Full model training results
+        "../results/full_model_training/bioclip_polarbear/checkpoint_epoch_2_embeddings_mask.pkl", #9
+        "../results/full_model_training/imagedino_b_polarbear/checkpoint_epoch_10_embeddings_mask.pkl",
+        "../results/full_model_training/imagedino_s_polarbear/checkpoint_epoch_12_embeddings_mask.pkl",
+        "../results/full_model_training/megadescriptor_b_polarbear/checkpoint_epoch_4_embeddings_mask.pkl", # 12
+        "../results/full_model_training/megadescriptor_l_polarbear/checkpoint_epoch_16_embeddings_mask.pkl",
+        "../results/full_model_training/megadescriptor_s_polarbear/checkpoint_epoch_13_embeddings_mask.pkl",
+        "../results/full_model_training/megadescriptor_t_polarbear/checkpoint_epoch_7_embeddings_mask.pkl",
+        "../results/full_model_training/resnet18_polarbear/checkpoint_epoch_1_embeddings_mask.pkl",
+        #"../results/full_model_training/resnet18_polarbear/checkpoint_epoch_41_embeddings_mask.pkl",
+        "../results/full_model_training/resnet50_polarbear/checkpoint_epoch_1_embeddings_mask.pkl",
+        "../results/full_model_training/resnet152_polarbear/checkpoint_epoch_8_embeddings_mask.pkl",
+        #"../results/full_model_training/resnet152_polarbear/checkpoint_epoch_50_embeddings_mask.pkl",
+        "../results/full_model_training/vgg-16_polarbear/checkpoint_epoch_16_embeddings_mask.pkl"
     ]
 
     # Load dataframe of test examples
@@ -335,11 +540,11 @@ def get_image_model_results_polarbears():
 def main():
     # List of model embedding paths
     models = [
-        "/home/kkno604/github/meerkat-repos/RoVF-meerkat-reidentification/results/full_model_training/bioclip_meerkat/checkpoint_epoch_2_embeddings_mask.pkl"
+        "../results/full_model_training/bioclip_meerkat/checkpoint_epoch_2_embeddings_mask.pkl"
     ]
     
     # Load dataframe of test examples
-    df = pd.read_csv("/home/kkno604/github/meerkat-repos/RoVF-meerkat-reidentification/Dataset/meerkat_h5files/Precomputed_test_examples_meerkat.csv")
+    df = pd.read_csv("../Dataset/meerkat_h5files/Precomputed_test_examples_meerkat.csv")
     
     # Get metrics for all models
     metrics = get_metrics(models, df, img_maj_vote=True)
@@ -352,6 +557,12 @@ if __name__ == "__main__":
     #main()
     #get_dino_pretrained_results_meerkat()
     #get_dino_pretrained_results_polarbears()
-    get_image_model_results_meerkat()
+    #get_image_model_results_meerkat()
     #get_image_model_results_polarbears()
+
+    #get_megadescriptor_results_meerkat()
+    get_megadescriptor_results_polarbears()
+
+    #get_bioclip_video_results_meerkat()
+    #get_bioclip_video_results_polarbears()
 
