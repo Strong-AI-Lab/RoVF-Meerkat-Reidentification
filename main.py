@@ -470,7 +470,7 @@ def train(yaml_dict, device, ckpt_path):
     start_epoch = 0
     checkpoint = None
     if ckpt_path != "":
-        checkpoint = torch.load(ckpt_path)
+        checkpoint = torch.load(ckpt_path, map_location=device)
         model.load_state_dict(checkpoint["model_state_dict"])
         start_epoch = checkpoint["epoch"] # assume epoch saved is +1 and train function starts at zero.
 

@@ -282,7 +282,7 @@ def print_model_architecture():
     print(model)
 
     # Freeze all parameters
-    for param in model.parameters(): # TODO load model functin.
+    for param in model.parameters():
         param.requires_grad = False
 
     # Unfreeze last two layers of the transformer encoder

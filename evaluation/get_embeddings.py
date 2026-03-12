@@ -45,7 +45,7 @@ def get_embeddings(
 ):
     
      # load ckpt here  
-    mdata = torch.load(model_ckpt)["metadata"] # this is a string of a dictionary, how to load it?
+    mdata = torch.load(model_ckpt, map_location="cpu")["metadata"] # this is a string of a dictionary, how to load it?
     # Load the string into a dictionary using YAML (use safe_load for security)
     mdata = yaml.safe_load(mdata)
     
@@ -83,7 +83,7 @@ def get_embeddings(
             else:
                 output = model(data.to(device))
 
-            if isinstance(output, tuple) or isinstance(output, list) and not img_maj_vote:
+            if (isinstance(output, tuple) or isinstance(output, list)) and not img_maj_vote:
                 output = output[-1]
             # if img_maj_vote, output is already in the correct format and we don't need to do anything
             
@@ -163,7 +163,7 @@ def main(args):
         raise Exception(f"Model type {args.model_type} not recognized")
 
     if args.checkpoint:
-        checkpoint = torch.load(args.checkpoint)
+        checkpoint = torch.load(args.checkpoint, map_location="cpu")
         model.load_state_dict(checkpoint["model_state_dict"])
 
     model.to(device)
@@ -200,7 +200,7 @@ def main(args):
             else:
                 output = model(data.to(device))
 
-            if isinstance(output, tuple) or isinstance(output, list) and not args.image_maj_vote:
+            if (isinstance(output, tuple) or isinstance(output, list)) and not args.image_maj_vote:
                 output = output[-1]
             # if image_maj_vote, output is already in the correct format and we don't need to do anything
 

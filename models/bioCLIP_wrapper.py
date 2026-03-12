@@ -12,7 +12,7 @@ class BioCLIPVideoWrapper(nn.Module):
         self.model, self.preprocess_train, self.preprocess_val = open_clip.create_model_and_transforms(model_name)
         self.tokenizer = open_clip.get_tokenizer(model_name)
         if checkpoint_path:
-            self.model.load_state_dict(torch.load(checkpoint_path))
+            self.model.load_state_dict(torch.load(checkpoint_path, map_location="cpu"))
 
         # New pre-pool config
         self.return_prepool = return_prepool
@@ -81,7 +81,7 @@ class BioCLIPVideoWrapper(nn.Module):
             stacked_tensors = torch.stack(cls_outputs, dim=1) # (b, #frames, dm)
             output_tensor = torch.max(stacked_tensors, dim=1).values # max along frame dimension
         elif self.forward_strat == "cls":
-            output_tensor = cls_outputs[-1] # (b, dm) # if this is a video, take the last frame. Assume in practice that only one frame is provided. 
+            output_tensor = cls_outputs[-1] # (b, dm); for multi-frame input, selects the last frame embedding.
             # this clip model already outputs a single dm vector. So no need to do anything else.
         else:    
             raise ValueError(f"Invalid forward strategy: {self.forward_strat}. Please use one of 'cat', 'average', or 'max'.")

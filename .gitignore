@@ -12,3 +12,5 @@
 *.exe
 *RViT_wrapper.py
 *RViT.py
+.venv/
+__pycache__/

@@ -14,7 +14,7 @@ class MegaDescriptorVideoWrapper(nn.Module):
         # Load the MegaDescriptor model
         self.model = timm.create_model(model_name, pretrained=pretrained)
         if checkpoint_path:
-            self.model.load_state_dict(torch.load(checkpoint_path))
+            self.model.load_state_dict(torch.load(checkpoint_path, map_location="cpu"))
 
         self.forward_strat = forward_strat
         if self.forward_strat not in ["cat", "average", "avg", "mean", "max", "maximum", "cls"]:
@@ -78,7 +78,7 @@ class MegaDescriptorVideoWrapper(nn.Module):
         elif self.forward_strat == "cls":
             #output_tensor = torch.stack([cls_[:,0] for cls_ in cls_outputs], dim=1) # (b, #frames, dm)
             #output_tensor = torch.mean(output_tensor, dim=1)
-            output_tensor = cls_outputs[-1] # (b, dm) # if this is a video, take the last frame. Assume in practice that only one frame is provided.
+            output_tensor = cls_outputs[-1] # (b, dm); for multi-frame input, selects the last frame embedding.
             # this clip model already outputs a single dm vector. So no need to do anything else.
         else:    
             raise ValueError(f"Invalid forward strategy: {self.forward_strat}. Please use one of 'cat', 'average', or 'max'.")
@@ -220,7 +220,7 @@ def forward_cat_test(output_dim):
     print(f"Checkpoint saved to {checkpoint_path}")
 
     # Load checkpoint
-    model.load_state_dict(torch.load(checkpoint_path))
+    model.load_state_dict(torch.load(checkpoint_path, map_location="cpu"))
     print(f"Checkpoint loaded from {checkpoint_path}")
 
     # delete checkpoint

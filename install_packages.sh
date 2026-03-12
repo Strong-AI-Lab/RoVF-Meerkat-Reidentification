@@ -1,16 +1,100 @@
 #!/bin/bash
 
-# Check if the environment name/path is passed as an argument
-if [ -z "$1" ]; then
-  echo "Error: No Conda environment name or path provided."
-  echo "Usage: ./install_packages.sh <conda-environment>"
-  exit 1
+set -uo pipefail
+
+# Usage:
+#   ./install_packages.sh --conda <env_name_or_prefix>
+#   ./install_packages.sh --venv <venv_path>
+#   ./install_packages.sh
+#
+# With no args, this script auto-detects in this order:
+#   1) active conda env
+#   2) active virtualenv
+#   3) local .venv
+
+MODE=""
+TARGET=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --conda)
+      MODE="conda"
+      TARGET="${2:-}"
+      shift 2
+      ;;
+    --venv)
+      MODE="venv"
+      TARGET="${2:-}"
+      shift 2
+      ;;
+    -h|--help)
+      echo "Usage: ./install_packages.sh [--conda <env_name_or_prefix> | --venv <venv_path>]"
+      exit 0
+      ;;
+    *)
+      echo "Unknown argument: $1"
+      echo "Usage: ./install_packages.sh [--conda <env_name_or_prefix> | --venv <venv_path>]"
+      exit 1
+      ;;
+  esac
+done
+
+if [[ -z "$MODE" ]]; then
+  if [[ -n "${CONDA_PREFIX:-}" ]]; then
+    MODE="conda"
+    TARGET="$CONDA_PREFIX"
+    echo "Detected active conda environment: $TARGET"
+  elif [[ -n "${VIRTUAL_ENV:-}" ]]; then
+    MODE="venv"
+    TARGET="$VIRTUAL_ENV"
+    echo "Detected active virtual environment: $TARGET"
+  elif [[ -x ".venv/bin/python" ]]; then
+    MODE="venv"
+    TARGET=".venv"
+    echo "Detected local virtual environment: $TARGET"
+  else
+    echo "Error: no environment detected."
+    echo "Provide one explicitly:"
+    echo "  ./install_packages.sh --conda <env_name_or_prefix>"
+    echo "  ./install_packages.sh --venv <venv_path>"
+    exit 1
+  fi
 fi
 
-# Activate the Conda environment
-conda_env="$1"
-echo "Activating Conda environment: $conda_env"
-source activate "$conda_env"
+PIP_CMD=()
+if [[ "$MODE" == "conda" ]]; then
+  if ! command -v conda >/dev/null 2>&1; then
+    echo "Error: conda not found in PATH."
+    exit 1
+  fi
+  if [[ -z "$TARGET" ]]; then
+    echo "Error: --conda requires an environment name or prefix path."
+    exit 1
+  fi
+
+  if [[ -d "$TARGET" ]]; then
+    echo "Using conda env prefix: $TARGET"
+    PIP_CMD=(conda run --prefix "$TARGET" python -m pip)
+  else
+    echo "Using conda env name: $TARGET"
+    PIP_CMD=(conda run -n "$TARGET" python -m pip)
+  fi
+elif [[ "$MODE" == "venv" ]]; then
+  if [[ -z "$TARGET" ]]; then
+    echo "Error: --venv requires a path (for example, .venv)."
+    exit 1
+  fi
+  if [[ ! -x "$TARGET/bin/python" ]]; then
+    echo "Error: could not find python executable at $TARGET/bin/python"
+    exit 1
+  fi
+
+  echo "Using virtual environment at: $TARGET"
+  PIP_CMD=("$TARGET/bin/python" -m pip)
+else
+  echo "Error: unsupported mode '$MODE'"
+  exit 1
+fi
 
 # Define a list of packages to be installed
 packages=(
@@ -89,9 +173,22 @@ packages=(
 )
 
 # Loop through the list and install each package
+failed_packages=()
 for package in "${packages[@]}"; do
     echo "Installing $package..."
-    python -m pip install "$package"
+  if ! "${PIP_CMD[@]}" install "$package"; then
+    echo "Failed to install $package"
+    failed_packages+=("$package")
+  fi
 done
+
+if [[ ${#failed_packages[@]} -gt 0 ]]; then
+  echo "Completed with failures."
+  echo "The following packages failed to install:"
+  for pkg in "${failed_packages[@]}"; do
+    echo "  - $pkg"
+  done
+  exit 1
+fi
 
 echo "All packages have been installed."

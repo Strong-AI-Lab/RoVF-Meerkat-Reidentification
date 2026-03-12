@@ -2,6 +2,8 @@
 
 This repository contains the codebase for the paper **RoVF for Animal Re-identification**.
 
+> **Branch notice:** This branch is a work in progress focused on improving the codebase for broader general utility.
+
 **Authors:** Mitchell Rogers, Kobe Knowles, Gaël Gendron, Shahrokh Heidari, Isla Duporge, David Arturo Soriano Valdez, Mihailo Azhar, Padriac O’Leary, Simon Eyre, Michael Witbrock, Patrice Delmas.<br/>
 **Supported by:** *Natural, Artificial, and Organisation Intelligence Institute, The University of Auckland, New Zealand*
 
@@ -11,23 +13,45 @@ This repository contains the codebase for the paper **RoVF for Animal Re-identif
 
 ## Overview
 - [Installation](#installation)
+- [First-time quickstart](#first-time-quickstart)
 - [Downloading the datasets](#downloading-the-datasets)
 - [Background masking](#background-masking)
 - [Re-identification](#re-identification)
 - [Folder structure](#folder-structure)
+- [Models guide](#models-guide)
 - [Acknowledgments](#acknowledgements)
 
 ## Installation
 
-In your environment of choice (conda is preferred) you will need to install the following packages. Most can be installed with the provided `install_packages.sh` script, but others will need to be installed manually. A Python version that mathces your PyTorch version is necessary, e.g., Python 3.11. 
+In your environment of choice (conda is preferred), install project dependencies with `install_packages.sh`. A Python version that matches your PyTorch version is necessary (e.g., Python 3.11).
 
-Fist you will need to install PyTorch version 2.0 or greater. You can follow the instructions here: [https://pytorch.org/get-started/locally/](https://pytorch.org/get-started/locally/)
+First install PyTorch (2.0+) for your platform by following: [https://pytorch.org/get-started/locally/](https://pytorch.org/get-started/locally/)
 
-Then run the following bash script `install_packages.sh` to install all other required packages via pip (note that this script is set up for a conda environment). 
+For example (CUDA 12.6):
 
 ```bash
-./install_packages.sh conda-env-name-or-path
+pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu126 --extra-index-url https://pypi.org/simple
 ```
+
+Then run `install_packages.sh` to install the remaining dependencies.
+
+The script now supports both conda and virtual environments:
+
+```bash
+# Conda env by name
+./install_packages.sh --conda your-conda-env
+
+# Conda env by prefix/path
+./install_packages.sh --conda /path/to/conda/env
+
+# Python venv (for example, .venv)
+./install_packages.sh --venv .venv
+
+# Auto-detect active env (conda -> venv -> local .venv)
+./install_packages.sh
+```
+
+If an individual package fails, the script continues installing the rest and reports a final list of failed packages.
 
 ## Downloading the datasets
 For our experiments, we use two animal video datasets:
@@ -122,6 +146,10 @@ Main files:
 - **lr_schedulers/:** Learning rate scheduler functions.
 
 - **models/:** Model architectures are stored here.
+
+## Models guide
+
+See [models/README.md](models/README.md) for a quick map of wrappers and the difference between `Perceiver` and `PerceiverV2`.
 
 - **training_functions/:** Training, validation, and support functions related to training models.
 
