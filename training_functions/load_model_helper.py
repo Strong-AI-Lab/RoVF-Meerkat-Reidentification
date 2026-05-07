@@ -523,7 +523,7 @@ if __name__ == "__main__":
     #print(f"recurrent_output[-1].size(): {recurrent_output[-1].size()}")
 
     model_type = "recurrent"
-    if model_type == "recurrent" or "recurrent_perceiver":
+    if model_type in ["recurrent", "recurrent_perceiver"]:
         ckpt_path = "/home/kkno604/github/meerkat-repos/RoVF-meerkat-reidentification/results/hyperparameter_search/reproducibility_test/rovf_margin_1_adamw_transformations/checkpoint_epoch_1.pt"
         model = load_model_from_checkpoint(ckpt_path)
 

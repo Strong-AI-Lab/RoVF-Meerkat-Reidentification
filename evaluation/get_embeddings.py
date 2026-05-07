@@ -83,7 +83,7 @@ def get_embeddings(
             else:
                 output = model(data.to(device))
 
-            if isinstance(output, tuple) or isinstance(output, list) and not img_maj_vote:
+            if (isinstance(output, tuple) or isinstance(output, list)) and not img_maj_vote:
                 output = output[-1]
             # if img_maj_vote, output is already in the correct format and we don't need to do anything
             
@@ -200,7 +200,7 @@ def main(args):
             else:
                 output = model(data.to(device))
 
-            if isinstance(output, tuple) or isinstance(output, list) and not args.image_maj_vote:
+            if (isinstance(output, tuple) or isinstance(output, list)) and not args.image_maj_vote:
                 output = output[-1]
             # if image_maj_vote, output is already in the correct format and we don't need to do anything
 

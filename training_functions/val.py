@@ -91,4 +91,5 @@ def val(
     with open(loss_log_path_epoch, "a") as loss_log_file:
         loss_log_file.write(f"Epoch [{current_epoch}/{num_epochs}], Average Loss: {avg_loss}, Top-1 Total Correct: {top_1_correct}/{top_1_total} ({top_1_correct/top_1_total})\n")
 
-    return avg_loss, top_1_correct/top_1_total, top_3_correct/top_3_total
+    top_3_acc = top_3_correct/top_3_total if top_3_total > 0 else None
+    return avg_loss, top_1_correct/top_1_total, top_3_acc
