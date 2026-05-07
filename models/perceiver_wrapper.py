@@ -114,7 +114,7 @@ class Perceiver(nn.Module):
         self.flatten_channels = flatten_channels
 
         if use_raw_input:
-            self.raw_cross_attention = CrossAttention(latent_dim, embedding_dim, num_heads)
+            self.raw_cross_attention = CrossAttention(latent_dim, raw_input_dim, num_heads)
         if use_embeddings:
             self.embedding_cross_attention = CrossAttention(latent_dim, embedding_dim, num_heads)
 
@@ -225,7 +225,7 @@ class PerceiverV2(nn.Module):
         self.flatten_channels = flatten_channels
 
         if use_raw_input:
-            self.raw_cross_attention = CrossAttention(latent_dim, embedding_dim, num_heads)
+            self.raw_cross_attention = CrossAttention(latent_dim, raw_input_dim, num_heads)
         if use_embeddings:
             self.embedding_cross_attention = CrossAttention(latent_dim, embedding_dim, num_heads)
 

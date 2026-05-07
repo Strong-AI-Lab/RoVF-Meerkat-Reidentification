@@ -1,0 +1,5 @@
+# Optional model-wrapper dependencies.
+einops>=0.8.0
+open_clip_torch>=2.30.0
+timm>=1.0.13
+transformers>=4.44.0

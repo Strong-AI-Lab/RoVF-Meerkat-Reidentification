@@ -8,6 +8,8 @@
 *.jpg
 *.h5
 *.txt
+!requirements*.txt
+!constraints-*.txt
 *.eps
 *.exe
 *RViT_wrapper.py

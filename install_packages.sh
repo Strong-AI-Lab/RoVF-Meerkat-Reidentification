@@ -2,42 +2,202 @@
 
 set -uo pipefail
 
-# Usage:
-#   ./install_packages.sh --conda <env_name_or_prefix>
-#   ./install_packages.sh --venv <venv_path>
-#   ./install_packages.sh
-#
-# With no args, this script auto-detects in this order:
-#   1) active conda env
-#   2) active virtualenv
-#   3) local .venv
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 MODE=""
 TARGET=""
+EXTRAS="models,dev"
+MINIMAL=false
+DRY_RUN=false
+REPRODUCIBLE=false
+CONSTRAINTS_FILE=""
+
+usage() {
+  cat <<'USAGE'
+Usage: ./install_packages.sh [--conda <env_name_or_prefix> | --venv <venv_path>] [options]
+
+Options:
+  --extras <list>   Optional groups to install: models, segmentation, dev, all.
+                    Defaults to models,dev. Use comma-separated values.
+  --minimal         Install core requirements only.
+  --reproducible    Install with constraints-validated.txt for repeatable reruns.
+  --constraints <path>
+                    Install with a caller-provided pip constraints file.
+  --dry-run         Print selected requirement files and packages without installing.
+  -h, --help        Show this message.
+
+PyTorch and TorchVision are intentionally not installed here because the correct
+wheel depends on your platform/CUDA setup. Install them first from:
+  https://pytorch.org/get-started/locally/
+
+With no environment args, this script auto-detects in this order:
+  1) active conda env
+  2) active virtualenv
+  3) local .venv
+USAGE
+}
+
+normalize_extras() {
+  local value="$1"
+  value="${value// /}"
+  value="${value//;/,}"
+  echo "$value"
+}
+
+add_group() {
+  local group="$1"
+  local existing
+  for existing in "${REQ_GROUPS[@]}"; do
+    if [[ "$existing" == "$group" ]]; then
+      return
+    fi
+  done
+  REQ_GROUPS+=("$group")
+}
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --conda)
+      if [[ $# -lt 2 ]]; then
+        echo "Error: --conda requires an environment name or prefix path."
+        exit 1
+      fi
       MODE="conda"
-      TARGET="${2:-}"
+      TARGET="$2"
       shift 2
       ;;
     --venv)
+      if [[ $# -lt 2 ]]; then
+        echo "Error: --venv requires a path (for example, .venv)."
+        exit 1
+      fi
       MODE="venv"
-      TARGET="${2:-}"
+      TARGET="$2"
       shift 2
       ;;
+    --extras)
+      if [[ $# -lt 2 ]]; then
+        echo "Error: --extras requires a comma-separated list."
+        exit 1
+      fi
+      EXTRAS="$(normalize_extras "$2")"
+      shift 2
+      ;;
+    --minimal)
+      MINIMAL=true
+      shift
+      ;;
+    --reproducible)
+      REPRODUCIBLE=true
+      shift
+      ;;
+    --constraints)
+      if [[ $# -lt 2 ]]; then
+        echo "Error: --constraints requires a path."
+        exit 1
+      fi
+      CONSTRAINTS_FILE="$2"
+      shift 2
+      ;;
+    --dry-run)
+      DRY_RUN=true
+      shift
+      ;;
     -h|--help)
-      echo "Usage: ./install_packages.sh [--conda <env_name_or_prefix> | --venv <venv_path>]"
+      usage
       exit 0
       ;;
     *)
       echo "Unknown argument: $1"
-      echo "Usage: ./install_packages.sh [--conda <env_name_or_prefix> | --venv <venv_path>]"
+      usage
       exit 1
       ;;
   esac
 done
+
+if [[ "$MINIMAL" == true && "$EXTRAS" != "models,dev" ]]; then
+  echo "Error: --minimal cannot be combined with --extras."
+  exit 1
+fi
+
+if [[ "$REPRODUCIBLE" == true && -n "$CONSTRAINTS_FILE" ]]; then
+  echo "Error: --reproducible cannot be combined with --constraints."
+  exit 1
+fi
+
+if [[ "$REPRODUCIBLE" == true ]]; then
+  CONSTRAINTS_FILE="$SCRIPT_DIR/constraints-validated.txt"
+fi
+
+REQ_GROUPS=()
+add_group "core"
+if [[ "$MINIMAL" == false ]]; then
+  if [[ -z "$EXTRAS" ]]; then
+    echo "Error: --extras requires a non-empty comma-separated list."
+    exit 1
+  fi
+
+  IFS=',' read -r -a EXTRA_GROUPS <<< "$EXTRAS"
+  for group in "${EXTRA_GROUPS[@]}"; do
+    case "$group" in
+      all)
+        add_group "models"
+        add_group "segmentation"
+        add_group "dev"
+        ;;
+      models|segmentation|dev)
+        add_group "$group"
+        ;;
+      "")
+        echo "Error: empty extras group in '$EXTRAS'."
+        exit 1
+        ;;
+      *)
+        echo "Error: unknown extras group '$group'."
+        echo "Valid groups: models, segmentation, dev, all"
+        exit 1
+        ;;
+    esac
+  done
+fi
+
+requirements_file_for_group() {
+  case "$1" in
+    core) echo "$SCRIPT_DIR/requirements-core.txt" ;;
+    models) echo "$SCRIPT_DIR/requirements-models.txt" ;;
+    segmentation) echo "$SCRIPT_DIR/requirements-segmentation.txt" ;;
+    dev) echo "$SCRIPT_DIR/requirements-dev.txt" ;;
+  esac
+}
+
+echo "Selected requirement groups: ${REQ_GROUPS[*]}"
+
+if [[ -n "$CONSTRAINTS_FILE" ]]; then
+  if [[ ! -f "$CONSTRAINTS_FILE" ]]; then
+    echo "Error: constraints file not found: $CONSTRAINTS_FILE"
+    exit 1
+  fi
+  echo "Using constraints file: $CONSTRAINTS_FILE"
+fi
+
+for group in "${REQ_GROUPS[@]}"; do
+  req_file="$(requirements_file_for_group "$group")"
+  if [[ ! -f "$req_file" ]]; then
+    echo "Error: missing requirements file for group '$group': $req_file"
+    exit 1
+  fi
+done
+
+if [[ "$DRY_RUN" == true ]]; then
+  echo "Dry run only; no packages will be installed."
+  for group in "${REQ_GROUPS[@]}"; do
+    req_file="$(requirements_file_for_group "$group")"
+    echo
+    echo "[$group] $req_file"
+    sed '/^[[:space:]]*#/d;/^[[:space:]]*$/d' "$req_file"
+  done
+  exit 0
+fi
 
 if [[ -z "$MODE" ]]; then
   if [[ -n "${CONDA_PREFIX:-}" ]]; then
@@ -62,6 +222,7 @@ if [[ -z "$MODE" ]]; then
 fi
 
 PIP_CMD=()
+PYTHON_CMD=()
 if [[ "$MODE" == "conda" ]]; then
   if ! command -v conda >/dev/null 2>&1; then
     echo "Error: conda not found in PATH."
@@ -74,9 +235,11 @@ if [[ "$MODE" == "conda" ]]; then
 
   if [[ -d "$TARGET" ]]; then
     echo "Using conda env prefix: $TARGET"
+    PYTHON_CMD=(conda run --prefix "$TARGET" python)
     PIP_CMD=(conda run --prefix "$TARGET" python -m pip)
   else
     echo "Using conda env name: $TARGET"
+    PYTHON_CMD=(conda run -n "$TARGET" python)
     PIP_CMD=(conda run -n "$TARGET" python -m pip)
   fi
 elif [[ "$MODE" == "venv" ]]; then
@@ -90,105 +253,54 @@ elif [[ "$MODE" == "venv" ]]; then
   fi
 
   echo "Using virtual environment at: $TARGET"
+  PYTHON_CMD=("$TARGET/bin/python")
   PIP_CMD=("$TARGET/bin/python" -m pip)
 else
   echo "Error: unsupported mode '$MODE'"
   exit 1
 fi
 
-# Define a list of packages to be installed
-packages=(
-    "av==12.0.0"
-    "blessed==1.20.0"
-    "contourpy==1.2.0"
-    "cycler==0.12.1"
-    "debugpy==1.6.7"
-    "decorator==5.1.1"
-    "exceptiongroup==1.2.2"
-    "executing==2.0.1"
-    "filelock==3.13.1"
-    "fonttools==4.50.0"
-    "fsspec==2024.3.1"
-    "gmpy2==2.1.2"
-    "gpustat==1.1.1"
-    "h5==0.9.3"
-    "h5py==3.11.0"
-    "huggingface-hub==0.24.6"
-    "idna==3.4"
-    "importlib-metadata==8.2.0"
-    "jedi==0.19.1"
-    "jinja2==3.1.3"
-    "joblib==1.4.2"
-    "jupyter-core==5.7.2"
-    "kiwisolver==1.4.5"
-    "markupsafe==2.1.3"
-    "matplotlib==3.8.3"
-    "mkl-fft==1.3.8"
-    "mkl-random==1.2.4"
-    "mkl-service==2.4.0"
-    "mpmath==1.3.0"
-    "nest-asyncio==1.6.0"
-    "networkx==3.1"
-    "numpy==1.26.4"
-    "nvidia-ml-py==12.535.133"
-    "opencv-python==4.9.0.80"
-    "packaging==24.0"
-    "pandas==2.2.1"
-    "parso==0.8.4"
-    "pexpect==4.9.0"
-    "pickleshare==0.7.5"
-    "pillow==10.2.0"
-    "platformdirs==4.2.2"
-    "prompt-toolkit==3.0.47"
-    "psutil==5.9.0"
-    "pure_eval==0.2.3"
-    "pygments==2.18.0"
-    "pyparsing==3.1.2"
-    "python-dateutil==2.9.0.post0"
-    "python-graphviz==0.20.3"
-    "pytz==2024.1"
-    "pyyaml==6.0.1"
-    "pyzmq==25.1.2"
-    "regex==2023.12.25"
-    "requests==2.31.0"
-    "scikit-learn==1.3.2"
-    "scipy==1.11.3"
-    "setuptools==68.1.2"
-    "six==1.16.0"
-    "sqlite==3.41.2"
-    "sympy==1.13"
-    "tbb==2021.8.0"
-    "traitlets==5.9.0"
-    "tqdm==4.66.1"
-    "typing-extensions==4.9.0"
-    "transformers"
-    "urllib3==1.27.0"
-    "wcwidth==0.2.10"
-    "wheel==0.41.2"
-    "wrapt==1.15.0"
-    "zipp==3.17.1"
-    "einops==0.8.0"
-    "open_clip_torch==2.30.0"
-    "timm==1.0.13"
-)
-
-# Loop through the list and install each package
-failed_packages=()
-for package in "${packages[@]}"; do
-    echo "Installing $package..."
-  if ! "${PIP_CMD[@]}" install "$package"; then
-    echo "Failed to install $package"
-    failed_packages+=("$package")
-  fi
-done
-
-if [[ ${#failed_packages[@]} -gt 0 ]]; then
-  echo "Completed with failures."
-  echo "The following packages failed to install:"
-  for pkg in "${failed_packages[@]}"; do
-    echo "  - $pkg"
-  done
+if ! "${PYTHON_CMD[@]}" - <<'PYTORCH_CHECK'
+try:
+    import torch
+    import torchvision
+except Exception as exc:
+    raise SystemExit(str(exc))
+PYTORCH_CHECK
+then
+  echo "Error: torch and torchvision must be installed before running this script."
+  echo "Install the correct build for your platform from:"
+  echo "  https://pytorch.org/get-started/locally/"
   exit 1
 fi
 
-echo "All packages have been installed."
+optional_failures=()
+for group in "${REQ_GROUPS[@]}"; do
+  req_file="$(requirements_file_for_group "$group")"
+  echo "Installing $group requirements from $req_file"
+  pip_install_args=(install)
+  if [[ -n "$CONSTRAINTS_FILE" ]]; then
+    pip_install_args+=(-c "$CONSTRAINTS_FILE")
+  fi
+  pip_install_args+=(-r "$req_file")
+  if ! "${PIP_CMD[@]}" "${pip_install_args[@]}"; then
+    if [[ "$group" == "core" ]]; then
+      echo "Error: core dependency installation failed."
+      exit 1
+    fi
+    echo "Warning: optional dependency group '$group' failed to install."
+    optional_failures+=("$group")
+  fi
+done
+
+if [[ ${#optional_failures[@]} -gt 0 ]]; then
+  echo
+  echo "Completed with optional dependency warnings."
+  echo "The following optional groups failed:"
+  for group in "${optional_failures[@]}"; do
+    echo "  - $group"
+  done
+  echo "Core dependencies were installed successfully."
+else
+  echo "All selected dependency groups installed successfully."
+fi

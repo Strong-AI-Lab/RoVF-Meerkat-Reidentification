@@ -35,7 +35,7 @@ pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu12
 
 Then run `install_packages.sh` to install the remaining dependencies.
 
-The script now supports both conda and virtual environments:
+The script supports conda environments, virtual environments, dependency groups, reproducible constraints, and dry-runs:
 
 ```bash
 # Conda env by name
@@ -49,9 +49,26 @@ The script now supports both conda and virtual environments:
 
 # Auto-detect active env (conda -> venv -> local .venv)
 ./install_packages.sh
+
+# Preview what would be installed
+./install_packages.sh --dry-run
+
+# Core runtime dependencies only
+./install_packages.sh --minimal
+
+# Include every optional group
+./install_packages.sh --extras all
+
+# Reproduce the validated dependency set as closely as possible
+./install_packages.sh --reproducible
+
+# Use your own pip constraints file
+./install_packages.sh --constraints /path/to/constraints.txt
 ```
 
-If an individual package fails, the script continues installing the rest and reports a final list of failed packages.
+The default install uses the `core`, `models`, and `dev` requirement groups with flexible version ranges. Core dependency failures stop the install; optional group failures are reported as warnings so you can still use the parts of the project that installed successfully. Segmentation dependencies are optional because SAM2 is expected as a local/external dependency.
+
+For repeatable reruns, `--reproducible` adds `constraints-validated.txt`, which was generated from a smoke-tested environment. PyTorch and TorchVision are still installed separately because the correct wheel depends on your platform and CUDA setup.
 
 ## Downloading the datasets
 For our experiments, we use two animal video datasets:

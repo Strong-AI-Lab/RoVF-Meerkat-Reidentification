@@ -1,0 +1,4 @@
+# Optional segmentation dependencies.
+# SAM2 itself is expected as a local/external dependency; see segmentation/custom_SAM2.py.
+hydra-core>=1.3.0
+omegaconf>=2.3.0
