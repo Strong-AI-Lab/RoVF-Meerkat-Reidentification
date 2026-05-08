@@ -211,6 +211,8 @@ To get the embeddings and evaluation metrics for a model, the Bash helper `get_e
 
 For a trained checkpoint, use the `.pt` file and `training_functions.load_model_helper.load_model_from_checkpoint()`. This helper reads the YAML metadata saved inside the checkpoint, rebuilds the matching model wrapper, and loads `model_state_dict`. You do not need to separately pass the original YAML file for this direct Python load.
 
+This example assumes the optional `models` dependency group is installed, which includes libraries used by the wrappers such as `transformers`, `timm`, and `open_clip_torch`. You do not need to import those libraries in your own script unless you use them directly; the loader and wrapper modules import what they need.
+
 Example for a RoVF-ST no-mask checkpoint:
 
 ```python
