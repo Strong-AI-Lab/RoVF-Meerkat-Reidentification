@@ -1,0 +1,14 @@
+# Core runtime dependencies for local training/evaluation utilities.
+# Install torch and torchvision separately for your platform/CUDA setup:
+# https://pytorch.org/get-started/locally/
+av>=12.0.0
+h5py>=3.11.0
+matplotlib>=3.8.0
+numpy>=1.26.0
+opencv-python>=4.9.0
+pandas>=2.2.0
+pillow>=10.2.0
+pyyaml>=6.0.0
+scikit-learn>=1.3.0
+scipy>=1.11.0
+tqdm>=4.66.0

@@ -68,15 +68,6 @@ def dino_model_load(
     )
     return dino
 
-def megadescriptors_model_load(
-    model_name="facebook/dino-vits16", output_dim=None, forward_strat: str="cat",
-    sequence_length=None, num_frames: int=1, dropout_rate=0.1
-):
-    megadescriptor = DINOv2VideoWrapper(
-         dino_model_name=dino_model_name, output_dim=output_dim, forward_strat=forward_strat, 
-         sequence_length=sequence_length, num_frames=num_frames, dropout_rate=dropout_rate
-    )
-
 def recurrent_model_perceiver_load(
     perceiver_config, dino_model_name="facebook/dinov2-base", dropout_rate=0.1, freeze_image_model=True, is_append_avg_emb=False
 ):
@@ -233,7 +224,7 @@ def load_model_from_checkpoint(checkpoint_path: str):
         return dictionary[key]
 
     # Load the checkpoint file
-    checkpoint = torch.load(checkpoint_path)
+    checkpoint = torch.load(checkpoint_path, map_location="cpu")
     
     # Convert the 'metadata' (YAML string) back to a dictionary
     yaml_str = checkpoint['metadata']
@@ -263,7 +254,7 @@ def load_model_from_checkpoint(checkpoint_path: str):
 
         if num_frames == 1:
             # Freeze all parameters
-            for param in model.parameters(): # TODO load model functin.
+            for param in model.parameters():
                 param.requires_grad = False
 
             # Unfreeze last two layers of the transformer encoder

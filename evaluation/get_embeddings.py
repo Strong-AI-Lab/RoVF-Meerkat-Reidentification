@@ -38,14 +38,22 @@ import yaml
 
 import argparse
 
+def resolve_device(device):
+    resolved = torch.device(device)
+    if resolved.type == "cuda" and not torch.cuda.is_available():
+        raise RuntimeError("CUDA was requested but is not available.")
+    return resolved
+
+
 def get_embeddings(
     model_ckpt, transformations, cooccurrences_filepath, clips_directory, 
     num_frames, mode, K, total_frames, zfill_num, is_override, override_value, 
     masks, apply_mask_percentage, device, img_maj_vote=False
 ):
+    device = resolve_device(device)
     
      # load ckpt here  
-    mdata = torch.load(model_ckpt)["metadata"] # this is a string of a dictionary, how to load it?
+    mdata = torch.load(model_ckpt, map_location="cpu")["metadata"] # this is a string of a dictionary, how to load it?
     # Load the string into a dictionary using YAML (use safe_load for security)
     mdata = yaml.safe_load(mdata)
     
@@ -122,7 +130,7 @@ def main(args):
         with open(mask_path, "rb") as f:
             masks = pickle.load(f)
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = resolve_device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Backwards compatibility: if dino_model_name is provided but pre_trained_model is None,
     # use dino_model_name and set model_type to dino
@@ -163,7 +171,7 @@ def main(args):
         raise Exception(f"Model type {args.model_type} not recognized")
 
     if args.checkpoint:
-        checkpoint = torch.load(args.checkpoint)
+        checkpoint = torch.load(args.checkpoint, map_location="cpu")
         model.load_state_dict(checkpoint["model_state_dict"])
 
     model.to(device)

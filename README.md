@@ -2,6 +2,8 @@
 
 This repository contains the codebase for the paper **RoVF for Animal Re-identification**.
 
+> **Branch notice:** This branch is a work in progress focused on improving the codebase for broader general utility.
+
 **Authors:** Mitchell Rogers, Kobe Knowles, Gaël Gendron, Shahrokh Heidari, Isla Duporge, David Arturo Soriano Valdez, Mihailo Azhar, Padriac O’Leary, Simon Eyre, Michael Witbrock, Patrice Delmas.<br/>
 **Supported by:** *Natural, Artificial, and Organisation Intelligence Institute, The University of Auckland, New Zealand*
 
@@ -11,23 +13,129 @@ This repository contains the codebase for the paper **RoVF for Animal Re-identif
 
 ## Overview
 - [Installation](#installation)
+- [First-time quickstart](#first-time-quickstart)
 - [Downloading the datasets](#downloading-the-datasets)
 - [Background masking](#background-masking)
 - [Re-identification](#re-identification)
 - [Folder structure](#folder-structure)
+- [Models guide](#models-guide)
 - [Acknowledgments](#acknowledgements)
 
 ## Installation
 
-In your environment of choice (conda is preferred) you will need to install the following packages. Most can be installed with the provided `install_packages.sh` script, but others will need to be installed manually. A Python version that mathces your PyTorch version is necessary, e.g., Python 3.11. 
+In your environment of choice, install PyTorch first, then use the project installer for the remaining dependency groups. Use a Python version supported by your selected PyTorch build, such as Python 3.10 or 3.11.
 
-Fist you will need to install PyTorch version 2.0 or greater. You can follow the instructions here: [https://pytorch.org/get-started/locally/](https://pytorch.org/get-started/locally/)
+Create and activate an environment before installing dependencies. For a Python virtual environment:
 
-Then run the following bash script `install_packages.sh` to install all other required packages via pip (note that this script is set up for a conda environment). 
+Windows PowerShell:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+```
+
+Linux/macOS Bash:
 
 ```bash
-./install_packages.sh conda-env-name-or-path
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
 ```
+
+For conda on Windows, Linux, or macOS:
+
+```bash
+conda create -n rovf python=3.11 -y
+conda activate rovf
+python -m pip install --upgrade pip
+```
+
+After activating the environment, install PyTorch (2.0+) for your platform by following: [https://pytorch.org/get-started/locally/](https://pytorch.org/get-started/locally/)
+
+For example (CUDA 12.6):
+
+```bash
+python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126 --extra-index-url https://pypi.org/simple
+```
+
+Then run the project installer to install the remaining dependencies. The canonical installer is `install_packages.py`; `install_packages.sh` and `install_packages.ps1` are thin shell wrappers around it. The installer expects the target conda or virtual environment to already exist.
+
+The script supports conda environments, virtual environments, dependency groups, reproducible constraints, and dry-runs:
+
+Linux/macOS Bash:
+
+```bash
+# Conda env by name
+./install_packages.sh --conda your-conda-env
+
+# Conda env by prefix/path
+./install_packages.sh --conda /path/to/conda/env
+
+# Python venv (for example, .venv)
+./install_packages.sh --venv .venv
+
+# Auto-detect active env (conda -> venv -> local .venv)
+./install_packages.sh
+
+# Preview what would be installed
+./install_packages.sh --dry-run
+
+# Core runtime dependencies only
+./install_packages.sh --minimal
+
+# Include every optional group
+./install_packages.sh --extras all
+
+# Reproduce the validated dependency set as closely as possible
+./install_packages.sh --reproducible
+
+# Use your own pip constraints file
+./install_packages.sh --constraints /path/to/constraints.txt
+```
+
+Windows PowerShell:
+
+```powershell
+# Conda env by name
+.\install_packages.ps1 --conda your-conda-env
+
+# Conda env by prefix/path
+.\install_packages.ps1 --conda C:\path\to\conda\env
+
+# Python venv (for example, .venv)
+.\install_packages.ps1 --venv .venv
+
+# Auto-detect active env (conda -> venv -> local .venv)
+.\install_packages.ps1
+
+# Preview what would be installed
+.\install_packages.ps1 --dry-run
+
+# Core runtime dependencies only
+.\install_packages.ps1 --minimal
+
+# Include every optional group
+.\install_packages.ps1 --extras all
+
+# Reproduce the validated dependency set as closely as possible
+.\install_packages.ps1 --reproducible
+
+# Use your own pip constraints file
+.\install_packages.ps1 --constraints C:\path\to\constraints.txt
+```
+
+If PowerShell script execution policy blocks the wrapper, call the Python installer directly:
+
+```powershell
+python install_packages.py --venv .venv
+```
+
+The default install uses the `core`, `models`, and `dev` requirement groups with flexible version ranges. Core dependency failures stop the install; optional group failures are reported as warnings so you can still use the parts of the project that installed successfully. Segmentation dependencies are optional because SAM2 is expected as a local/external dependency.
+
+For repeatable reruns, `--reproducible` adds `constraints-validated.txt`, which was generated from a smoke-tested environment. PyTorch and TorchVision are still installed separately because the correct wheel depends on your platform and CUDA setup.
+
+`setup_environment.py` is a legacy Linux environment snapshot retained for reference. New installs should use `install_packages.py` or one of the shell wrappers above.
 
 ## Downloading the datasets
 For our experiments, we use two animal video datasets:
@@ -78,7 +186,45 @@ https://github.com/user-attachments/assets/96c3898b-8fd6-4577-b637-33da5c7a01dd
 
 *Example video of incorrect (red), correct (green), and correct top-3 (blue) re-identifications of a query clip (left-most column) using the best RoVF model. The embedding distance between the query and gallery clip is shown underneath each thumbnail. The embeddings are based on the masked clips and displayed unmasked.*
 
-Most of the code for reidentification can be run through `main.py`. For training a model use `CUDA_VISIBLE_DEVICES=0 python main.py train yml_filepath.yml -d [cuda|cpu]` (choose one of 'cuda' or 'cpu' for device to run on, and replace the CUDA_VISIBLE_DEVICES number with the appropriate number; the latter can be ommitted if using cpu only). To get the embeddings and evaluation metrics for a model the script `get_emb_and_metrics.sh` is used (note that you have to manually edit the file with correct checkpoint paths).
+Most of the code for reidentification can be run through `main.py`. For training a model, choose one of `cuda` or `cpu` for the device and replace the GPU index with the appropriate value. The GPU environment variable can be omitted for CPU-only runs.
+
+Linux/macOS Bash:
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python main.py train yml_filepath.yml -d cuda
+python main.py train yml_filepath.yml -d cpu
+```
+
+Windows PowerShell:
+
+```powershell
+$env:CUDA_VISIBLE_DEVICES = "0"
+python main.py train yml_filepath.yml -d cuda
+Remove-Item Env:CUDA_VISIBLE_DEVICES
+
+python main.py train yml_filepath.yml -d cpu
+```
+
+To get the embeddings and evaluation metrics for a model, the Bash helper `get_emb_and_metric.sh` is available on Unix-like shells (note that you have to manually edit the file with correct checkpoint paths). Windows users can run the underlying Python entrypoints directly from PowerShell.
+
+### Loading one checkpointed model
+
+For a trained checkpoint, use the `.pt` file and `training_functions.load_model_helper.load_model_from_checkpoint()`. This helper reads the YAML metadata saved inside the checkpoint, rebuilds the matching model wrapper, and loads `model_state_dict`. You do not need to separately pass the original YAML file for this direct Python load.
+
+Example for a RoVF-ST no-mask checkpoint:
+
+```python
+import torch
+from training_functions.load_model_helper import load_model_from_checkpoint
+
+checkpoint_path = "path/to/full_model_training/rovf_st_no_mask_example/checkpoint_epoch_2.pt"
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+model = load_model_from_checkpoint(checkpoint_path).to(device)
+model.eval()
+```
+
+The `.pkl` files beside the checkpoint are saved embeddings or metrics inputs, not model weights. For `main.py get_embeddings`, pass the same `.pt` checkpoint through `-cp/--ckpt_path`; for direct model loading in your own script, prefer the helper function above.
 
 Run `python generate_yml.py` to generate all yaml files used for training; the appropriate file structure in results/ is also created.
 
@@ -89,7 +235,7 @@ The command line arguments for `main.py` are as follows:
 - `mode` (`str`): Mode to run the script in. Options: `train`, `test`, `get_metrics`, `get_embeddings`.
 - `yaml_path` (`str`): Path to the YAML configuration file.
 - `-d, --device` (`str`, default=`"cpu"`): Device to run on (e.g., `cuda`).
-- `-cp, --ckpt_path` (`str`, default=`""`): Checkpoint path for resuming training.
+- `-cp, --ckpt_path` (`str`, default=`""`): Checkpoint path for resuming training or loading a trained model in `test`/`get_embeddings` mode.
 - `-m, --mask_path` (`str`, default=`None`): Path to dataset masks (pickle file).
 - `-am, --apply_mask_percentage` (`float`, default=`1.0`): Percentage of masks to apply.
 - `-o, --override_value` (`int`, default=`None`): Value to override the number of frames.
@@ -122,6 +268,10 @@ Main files:
 - **lr_schedulers/:** Learning rate scheduler functions.
 
 - **models/:** Model architectures are stored here.
+
+## Models guide
+
+See [models/README.md](models/README.md) for a quick map of wrappers and the difference between `Perceiver` and `PerceiverV2`.
 
 - **training_functions/:** Training, validation, and support functions related to training models.
 
