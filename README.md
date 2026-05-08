@@ -2,7 +2,7 @@
 
 This repository contains the codebase for the paper **RoVF for Animal Re-identification**.
 
-> **Branch notice:** This branch is a work in progress focused on improving the codebase for broader general utility.
+> **Branch notice:** This `primary` branch contains post-publication code improvements intended to make the codebase more maintainable and broadly useful. The original code associated with the published paper is preserved in the `archive/published` branch.
 
 **Authors:** Mitchell Rogers, Kobe Knowles, Gaël Gendron, Shahrokh Heidari, Isla Duporge, David Arturo Soriano Valdez, Mihailo Azhar, Padriac O’Leary, Simon Eyre, Michael Witbrock, Patrice Delmas.<br/>
 **Supported by:** *Natural, Artificial, and Organisation Intelligence Institute, The University of Auckland, New Zealand*
