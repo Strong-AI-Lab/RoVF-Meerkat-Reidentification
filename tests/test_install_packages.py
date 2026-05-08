@@ -137,6 +137,27 @@ def test_resolve_venv_python_supports_posix_layout(tmp_path):
     assert installer.resolve_venv_python(tmp_path / "venv") == python
 
 
+def test_detect_install_target_auto_detects_local_posix_venv(tmp_path, capsys):
+    python = tmp_path / ".venv" / "bin" / "python"
+    python.parent.mkdir(parents=True)
+    python.write_text("", encoding="utf-8")
+
+    target = installer.detect_install_target(
+        None,
+        None,
+        env={"PATH": ""},
+        root=tmp_path,
+    )
+
+    captured = capsys.readouterr()
+    assert target.mode == "venv"
+    assert target.target == str(tmp_path / ".venv")
+    assert target.python_cmd == [str(python)]
+    assert target.pip_cmd == [str(python), "-m", "pip"]
+    assert "Detected local virtual environment" in captured.out
+    assert "Using virtual environment at" in captured.out
+
+
 def test_build_conda_commands_for_name():
     python_cmd, pip_cmd = installer.build_conda_commands("rovf", "conda")
 
@@ -202,6 +223,38 @@ def test_install_groups_passes_constraints_to_pip(tmp_path):
     assert any(str(part).endswith("requirements-core.txt") for part in calls[0])
 
 
+def test_main_with_posix_venv_uses_python_m_pip_without_installing(tmp_path):
+    python = tmp_path / "venv" / "bin" / "python"
+    python.parent.mkdir(parents=True)
+    python.write_text("", encoding="utf-8")
+    calls = []
+
+    def fake_runner(command, **kwargs):
+        calls.append((command, kwargs))
+        return subprocess.CompletedProcess(command, 0)
+
+    result = installer.main(
+        ["--venv", str(tmp_path / "venv"), "--minimal"],
+        runner=fake_runner,
+    )
+
+    assert result == 0
+    assert len(calls) == 2
+    assert calls[0][0] == [str(python), "-c", "import torch; import torchvision"]
+    assert calls[0][1]["text"] is True
+    assert calls[0][1]["capture_output"] is True
+    assert calls[1][0][:4] == [str(python), "-m", "pip", "install"]
+    assert any(str(part).endswith("requirements-core.txt") for part in calls[1][0])
+    assert all(
+        not any(str(part).endswith(name) for part in calls[1][0])
+        for name in (
+            "requirements-models.txt",
+            "requirements-segmentation.txt",
+            "requirements-dev.txt",
+        )
+    )
+
+
 def test_bash_wrapper_dry_run_smoke():
     bash = shutil.which("bash")
     if not bash:
@@ -215,6 +268,26 @@ def test_bash_wrapper_dry_run_smoke():
     )
 
     assert result.returncode == 0
+    assert "Selected requirement groups: core models dev" in result.stdout
+
+
+def test_bash_wrapper_preserves_constraint_path_with_spaces(tmp_path):
+    bash = shutil.which("bash")
+    if not bash:
+        pytest.skip("bash is not available")
+
+    constraints = tmp_path / "constraints with spaces.txt"
+    constraints.write_text("numpy==1.26.4\n", encoding="utf-8")
+
+    result = subprocess.run(
+        [bash, str(BASH_WRAPPER), "--constraints", str(constraints), "--dry-run"],
+        cwd=REPO_ROOT,
+        text=True,
+        capture_output=True,
+    )
+
+    assert result.returncode == 0
+    assert f"Using constraints file: {constraints}" in result.stdout
     assert "Selected requirement groups: core models dev" in result.stdout
 
 
