@@ -8,6 +8,19 @@ because both variants are used in training/evaluation entrypoints.
 """
 
 
+def add_latent_positional_embeddings(latents, positional_embeddings):
+    if positional_embeddings.size(0) < latents.size(1):
+        raise RuntimeError(
+            "positional_embeddings has fewer latent positions than the active latents: "
+            f"{positional_embeddings.size(0)} < {latents.size(1)}"
+        )
+
+    active_positional_embeddings = positional_embeddings[: latents.size(1)]
+    return latents + active_positional_embeddings.unsqueeze(0).expand(
+        latents.size(0), -1, -1
+    )
+
+
 class TransformerEncoder(nn.Module):
     def __init__(self, latent_dim, num_heads, num_layers, dropout):
         super().__init__()
@@ -138,7 +151,14 @@ class Perceiver(nn.Module):
         self.latents = None
         self.video_emb = None
 
-    def forward(self, raw_input=None, embeddings=None, video_emb=None, is_reset_latents=False):
+    def forward(
+        self,
+        raw_input=None,
+        embeddings=None,
+        video_emb=None,
+        add_pos_emb=True,
+        is_reset_latents=False,
+    ):
         if not self.use_raw_input and not self.use_embeddings:
             raise ValueError("At least one of use_raw_input or use_embeddings must be True")
 
@@ -158,6 +178,9 @@ class Perceiver(nn.Module):
         else:
             latents = self.latents
 
+        if add_pos_emb:
+            latents = add_latent_positional_embeddings(latents, self.positional_embeddings)
+
         latents = self.dropout1(latents)
 
         if self.use_raw_input:
@@ -169,9 +192,7 @@ class Perceiver(nn.Module):
             latents = self.embedding_cross_attention(latents, embeddings) + latents
             latents = self.dropout3(latents)
 
-        latents_res = latents
         latents = self.transformer(latents)
-        latents = latents + latents_res
 
         if self.output_layer is not None:
             output = self.output_layer(latents.view(latents.size(0), -1))
@@ -275,7 +296,7 @@ class PerceiverV2(nn.Module):
             latents = self.latents
 
         if add_pos_emb:
-            latents = latents + self.positional_embeddings.unsqueeze(0).repeat(batch_size, 1, 1)
+            latents = add_latent_positional_embeddings(latents, self.positional_embeddings)
 
         latents = self.dropout1(latents)
 

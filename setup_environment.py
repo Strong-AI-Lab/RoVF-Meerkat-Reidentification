@@ -1,3 +1,10 @@
+"""Legacy Linux conda environment snapshot.
+
+This script records the historical environment used for earlier experiments and
+contains Linux-specific package pins. For new installs, including Windows, use
+install_packages.py or the install_packages.sh/install_packages.ps1 wrappers.
+"""
+
 import subprocess
 import os
 import argparse
@@ -185,7 +192,12 @@ def setup_env(env_path, python_version, conda_packages, pip_packages):
 
 # Argument parser for command-line input
 def parse_arguments():
-    parser = argparse.ArgumentParser(description="Create a conda environment with a custom installation location.")
+    parser = argparse.ArgumentParser(
+        description=(
+            "Create a legacy Linux conda environment snapshot. For new installs, "
+            "use install_packages.py instead."
+        )
+    )
     parser.add_argument("env_name", type=str, help="Name of the Conda environment")
     parser.add_argument("install_location", type=str, help="Path to the installation location")
     parser.add_argument("--python_version", type=str, default="3.11.8", help="Python version to use in the environment")

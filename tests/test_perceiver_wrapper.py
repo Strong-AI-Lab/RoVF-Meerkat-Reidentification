@@ -100,3 +100,56 @@ def test_perceiver_requires_raw_input_when_configured_for_raw_input():
 def test_perceiver_rejects_dual_raw_and_embedding_inputs():
     with pytest.raises(AssertionError, match="both cannot be True"):
         Perceiver(**_perceiver_kwargs(use_raw_input=True, use_embeddings=True))
+
+
+def test_perceiver_v1_and_v2_match_without_video_embedding():
+    torch.manual_seed(1)
+    v1 = Perceiver(**_perceiver_kwargs())
+    v2 = PerceiverV2(**_perceiver_kwargs())
+    v2.load_state_dict(v1.state_dict())
+    embeddings = torch.randn(2, 3, 5)
+
+    v1_output = v1(embeddings=embeddings, is_reset_latents=True)
+    v2_output = v2(embeddings=embeddings, is_reset_latents=True)
+
+    assert torch.allclose(v1_output, v2_output)
+
+
+def test_video_embedding_only_changes_v1_initial_latents():
+    torch.manual_seed(1)
+    v1 = Perceiver(**_perceiver_kwargs())
+    v2 = PerceiverV2(**_perceiver_kwargs())
+    v2.load_state_dict(v1.state_dict())
+    embeddings = torch.randn(2, 3, 5)
+    video_emb = torch.randn(2, 4, 8)
+
+    v1_without_video = v1(embeddings=embeddings, is_reset_latents=True)
+    v1_with_video = v1(
+        embeddings=embeddings,
+        video_emb=video_emb,
+        is_reset_latents=True,
+    )
+    v2_without_video = v2(embeddings=embeddings, is_reset_latents=True)
+    v2_with_video = v2(
+        embeddings=embeddings,
+        video_emb=video_emb,
+        is_reset_latents=True,
+    )
+
+    assert not torch.allclose(v1_without_video, v1_with_video)
+    assert torch.allclose(v2_without_video, v2_with_video)
+
+
+@pytest.mark.parametrize("model_cls", [Perceiver, PerceiverV2])
+def test_perceiver_with_video_embedding_positional_table_keeps_output_shape(model_cls):
+    model = model_cls(**_perceiver_kwargs(use_video_emb=True))
+    embeddings = torch.randn(2, 3, 5)
+    video_emb = torch.randn(2, 4, 8)
+
+    output = model(
+        embeddings=embeddings,
+        video_emb=video_emb,
+        is_reset_latents=True,
+    )
+
+    assert output.shape == (2, 6)
